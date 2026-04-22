@@ -1,0 +1,51 @@
+name: Publish OpenAPI Spec to Redocly
+
+on:
+  workflow_call:
+    secrets:
+      REDOCLY_AUTHORIZATION:
+        required: true
+    inputs:
+      upload_artifact_name:
+        required: true
+        type: string
+      api_version:
+        required: true
+        type: string
+      redocly_organization:
+        required: true
+        type: string
+      api_name:
+        required: true
+        type: string
+      is_release:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  Push-API-to-Redocly:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download versioned OpenAPI spec artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.upload_artifact_name }}
+          path: /tmp/openapi-spec
+
+      - name: Push spec to Redocly (draft)
+        if: ${{ !inputs.is_release }}
+        env:
+          REDOCLY_AUTHORIZATION: ${{ secrets.REDOCLY_AUTHORIZATION }}
+        run: |
+          npx @redocly/cli@latest push /tmp/openapi-spec \
+            --destination @${{ inputs.redocly_organization }}/${{ inputs.api_name }}@${{ inputs.api_version }} \
+            --branch draft
+
+      - name: Push spec to Redocly (release)
+        if: ${{ inputs.is_release }}
+        env:
+          REDOCLY_AUTHORIZATION: ${{ secrets.REDOCLY_AUTHORIZATION }}
+        run: |
+          npx @redocly/cli@latest push /tmp/openapi-spec \
+            --destination @${{ inputs.redocly_organization }}/${{ inputs.api_name }}@${{ inputs.api_version }}

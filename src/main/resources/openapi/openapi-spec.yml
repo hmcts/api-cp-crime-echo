@@ -30,34 +30,6 @@ paths:
                 type: string
                 example: Hello
 
-  /example/{example_id}:
-    get:
-      description: Get example for example_id
-      operationId: getExampleByExampleId
-      tags:
-        - examples
-      parameters:
-        - in: path
-          name: example_id
-          required: true
-          description: Unique id for the example - long
-          schema:
-            type: integer
-            format: int64
-      responses:
-        '200':
-          description:  Examples found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ExampleResponse"
-        '400':
-          description: Bad input parameter
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
   /echo:
     get:
       description: Echo query parameters back as a JSON object
@@ -160,19 +132,6 @@ paths:
 
 components:
   schemas:
-    ExampleResponse:
-      description: Details of examples associated with the example id
-      type: object
-      properties:
-        exampleId:
-          description: Id of the example - long
-          type: integer
-          format: int64
-        exampleText:
-          description: Information associated with the example id
-          type: string
-          example: "Some text"
-
     EchoRequest:
       type: object
       description: Free-form JSON payload to echo back
