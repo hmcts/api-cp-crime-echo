@@ -2,8 +2,10 @@ package uk.gov.hmcts.cp.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
+import uk.gov.hmcts.cp.openapi.api.EchoApi;
 import uk.gov.hmcts.cp.openapi.api.ExamplesApi;
 import uk.gov.hmcts.cp.openapi.api.RootApi;
+import uk.gov.hmcts.cp.openapi.model.EchoDeleteResponse;
 import uk.gov.hmcts.cp.openapi.model.ErrorResponse;
 import uk.gov.hmcts.cp.openapi.model.ExampleResponse;
 import java.lang.reflect.Field;
@@ -39,4 +41,15 @@ class OpenApiObjectsTest {
                 .as("timestamp field type")
                 .isEqualTo(Instant.class);
     }
+
+    @Test
+    void generated_echo_api_should_have_expected_methods() {
+        assertThat(EchoApi.class).hasDeclaredMethods("getEcho", "createEcho", "updateEcho", "deleteEcho");
+    }
+
+    @Test
+    void generated_echo_delete_response_should_have_expected_fields() {
+        assertThat(EchoDeleteResponse.class).hasDeclaredFields("message");
+    }
+
 }
