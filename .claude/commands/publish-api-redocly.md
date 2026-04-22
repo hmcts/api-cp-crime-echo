@@ -25,3 +25,4 @@ After creating the workflow, also add caller steps to both `ci-draft.yml` and `c
 - Wire `redocly_organization` from `vars.REDOCLY_ORGANISATION`
 
 Finally, run `./gradlew build -DAPI_SPEC_VERSION=1.0.0` to confirm the existing build still passes (the new workflow files don't affect compilation).
+!!
