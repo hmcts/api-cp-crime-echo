@@ -60,6 +60,18 @@ jobs:
       api_version: ${{ needs.Artefact-Version.outputs.artefact_version }}
       is_release: true
 
+  Push-Release-OpenAPI-Spec-Redocly:
+    needs: [ Artefact-Version, Update-Spec-Version ]
+    uses: ./.github/workflows/publish-openapi-redocly.yml
+    secrets:
+      REDOCLY_AUTHORIZATION: ${{ secrets.REDOCLY_AUTHORIZATION }}
+    with:
+      upload_artifact_name: ${{ needs.Update-Spec-Version.outputs.upload_artifact_name }}
+      redocly_organization: ${{ vars.REDOCLY_ORGANISATION }}
+      api_name: ${{ github.event.repository.name }}
+      api_version: ${{ needs.Artefact-Version.outputs.artefact_version }}
+      is_release: true
+
   Publish:
     name: Publish - Java ${{ matrix.java }}
     runs-on: ubuntu-latest
