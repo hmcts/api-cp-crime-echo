@@ -1,0 +1,94 @@
+openapi: 3.0.0
+servers:
+  - description: API Marketplace api - mocking example api
+    url: https://virtserver.swaggerhub.com/HMCTS-DTS/api-hmcts-crime-template/1.0.0
+
+info:
+  title: API Marketplace api - example api
+  description: API Marketplace api - simple example
+  version: 1.0.0
+  contact:
+    email: no-reply@hmcts.com
+  license:
+    name: MIT
+    url: 'https://opensource.org/licenses/MIT'
+
+paths:
+  /:
+    get:
+      description: Root endpoint
+      operationId: getRoot
+      tags:
+        - root
+
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: Hello
+
+  /example/{example_id}:
+    get:
+      description: Get example for example_id
+      operationId: getExampleByExampleId
+      tags:
+        - examples
+      parameters:
+        - in: path
+          name: example_id
+          required: true
+          description: Unique id for the example - long
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description:  Examples found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExampleResponse"
+        '400':
+          description: Bad input parameter
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+components:
+  schemas:
+    ExampleResponse:
+      description: Details of examples associated with the example id
+      type: object
+      properties:
+        exampleId:
+          description: Id of the example - long
+          type: integer
+          format: int64
+        exampleText:
+          description: Information associated with the example id
+          type: string
+          example: "Some text"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context
+        timestamp:
+          type: string
+          format: date-time
+        traceId:
+          type: string
+          description: Unique identifier for error tracing

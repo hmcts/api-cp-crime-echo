@@ -1,0 +1,49 @@
+plugins {
+  id 'java'
+  id 'org.openapi.generator' version '7.21.0'
+  id 'jacoco'
+  id 'maven-publish'
+  id "com.github.ben-manes.versions" version "0.54.0"
+  id "org.cyclonedx.bom" version "3.2.4"
+  id 'pmd'
+}
+
+group = 'uk.gov.hmcts.cp'
+version = System.getProperty('API_SPEC_VERSION') ?: '0.0.999'
+
+apply {
+  from("$rootDir/gradle/repositories.gradle")
+  from("$rootDir/gradle/java.gradle")
+  from("$rootDir/gradle/dependency.gradle")
+  from("$rootDir/gradle/pmd.gradle")
+  from("$rootDir/gradle/test.gradle")
+  from("$rootDir/gradle/openapi.gradle")
+  from("$rootDir/gradle/jar.gradle")
+}
+
+ext {
+  springBootVersion = "4.0.5"
+  lombokVersion = "1.18.44"
+}
+
+dependencies {
+  implementation "org.openapitools:openapi-generator-core:7.21.0"
+  implementation "io.swagger.parser.v3:swagger-parser:2.1.40"
+  implementation "io.swagger.core.v3:swagger-annotations:2.2.48"
+  implementation "net.logstash.logback:logstash-logback-encoder:9.0"
+
+  implementation "com.fasterxml.jackson.core:jackson-annotations:2.21"
+  implementation "org.springframework.boot:spring-boot-starter-web:$springBootVersion"
+  implementation "org.springframework.boot:spring-boot-starter-validation:$springBootVersion"
+  testImplementation "org.springframework.boot:spring-boot-starter-test:$springBootVersion"
+
+  compileOnly "org.projectlombok:lombok:$lombokVersion"
+  testCompileOnly "org.projectlombok:lombok:$lombokVersion"
+  annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+  testAnnotationProcessor "org.projectlombok:lombok:$lombokVersion"
+
+  testImplementation(platform("org.junit:junit-bom:6.0.3"))
+  testImplementation "org.junit.jupiter:junit-jupiter-api"
+  testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine"
+  testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}

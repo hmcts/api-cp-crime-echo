@@ -1,0 +1,21 @@
+tasks.named('compileJava') {
+  dependsOn(tasks.openApiGenerate)
+}
+
+openApiGenerate {
+  inputSpec.set("src/main/resources/openapi/openapi-spec.yml")
+  outputDir = "${layout.buildDirectory.get().asFile.absolutePath}/generated"
+  apiPackage = "uk.gov.hmcts.cp.openapi.api"
+  modelPackage = "uk.gov.hmcts.cp.openapi.model"
+  generatorName = "spring"
+  typeMappings = ["OffsetDateTime": "Instant"]
+  importMappings = ["java.time.OffsetDateTime": "java.time.Instant"]
+  configOptions = [
+    interfaceOnly                       : "true",
+    useSpringBoot3                      : "true",
+    useTags                             : "true",   // use tag for api name
+    generatedConstructorWithRequiredArgs: "false",  // else conflicts with lombok AllArgsConstructor
+    openApiNullable                     : "false",  // else generates classes JsonNullable imports
+    additionalModelTypeAnnotations      : "@lombok.Builder;@lombok.AllArgsConstructor;@lombok.NoArgsConstructor",
+  ]
+}
