@@ -18,6 +18,10 @@ on:
       api_name:
         required: true
         type: string
+      mount_path:
+        required: false
+        type: string
+        default: /openapi.yaml
       is_release:
         required: false
         type: boolean
@@ -33,13 +37,21 @@ jobs:
           name: ${{ inputs.upload_artifact_name }}
           path: /tmp/openapi-spec
 
+      - name: Resolve spec file path
+        id: spec
+        run: |
+          SPEC_FILE=$(find /tmp/openapi-spec -name "*.yml" -o -name "*.yaml" | head -1)
+          echo "path=$SPEC_FILE" >> "$GITHUB_OUTPUT"
+
       - name: Push spec to Redocly (draft)
         if: ${{ !inputs.is_release }}
         env:
           REDOCLY_AUTHORIZATION: ${{ secrets.REDOCLY_AUTHORIZATION }}
         run: |
-          npx @redocly/cli@latest push /tmp/openapi-spec \
-            --destination @${{ inputs.redocly_organization }}/${{ inputs.api_name }}@${{ inputs.api_version }} \
+          npx @redocly/cli@latest push "${{ steps.spec.outputs.path }}" \
+            --organization ${{ inputs.redocly_organization }} \
+            --project ${{ inputs.api_name }} \
+            --mount-path ${{ inputs.mount_path }} \
             --branch draft
 
       - name: Push spec to Redocly (release)
@@ -47,5 +59,7 @@ jobs:
         env:
           REDOCLY_AUTHORIZATION: ${{ secrets.REDOCLY_AUTHORIZATION }}
         run: |
-          npx @redocly/cli@latest push /tmp/openapi-spec \
-            --destination @${{ inputs.redocly_organization }}/${{ inputs.api_name }}@${{ inputs.api_version }}
+          npx @redocly/cli@latest push "${{ steps.spec.outputs.path }}" \
+            --organization ${{ inputs.redocly_organization }} \
+            --project ${{ inputs.api_name }} \
+            --mount-path ${{ inputs.mount_path }}
