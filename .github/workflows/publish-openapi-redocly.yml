@@ -52,7 +52,9 @@ jobs:
             --organization ${{ inputs.redocly_organization }} \
             --project ${{ inputs.api_name }} \
             --mount-path ${{ inputs.mount_path }} \
-            --branch draft
+            --branch draft \
+            --author "${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>" \
+            --message "chore: publish draft spec ${{ inputs.api_version }} [skip ci]"
 
       - name: Push spec to Redocly (release)
         if: ${{ inputs.is_release }}
@@ -62,4 +64,6 @@ jobs:
           npx @redocly/cli@latest push "${{ steps.spec.outputs.path }}" \
             --organization ${{ inputs.redocly_organization }} \
             --project ${{ inputs.api_name }} \
-            --mount-path ${{ inputs.mount_path }}
+            --mount-path ${{ inputs.mount_path }} \
+            --author "${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>" \
+            --message "chore: publish release spec ${{ inputs.api_version }} [skip ci]"
