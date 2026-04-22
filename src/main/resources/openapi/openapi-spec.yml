@@ -58,6 +58,106 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /echo:
+    get:
+      description: Echo query parameters back as a JSON object
+      operationId: getEcho
+      tags:
+        - echo
+      parameters:
+        - in: query
+          name: echo_data
+          description: Query parameters to echo back
+          required: false
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: Echo of the supplied query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EchoResponse"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      description: Echo the JSON request body back in the response
+      operationId: createEcho
+      tags:
+        - echo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EchoRequest"
+      responses:
+        '200':
+          description: Echo of the request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EchoResponse"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      description: Echo the JSON request body back in the response
+      operationId: updateEcho
+      tags:
+        - echo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EchoRequest"
+      responses:
+        '200':
+          description: Echo of the request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EchoResponse"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      description: Delete echo resource
+      operationId: deleteEcho
+      tags:
+        - echo
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EchoDeleteResponse"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     ExampleResponse:
@@ -72,6 +172,25 @@ components:
           description: Information associated with the example id
           type: string
           example: "Some text"
+
+    EchoRequest:
+      type: object
+      description: Free-form JSON payload to echo back
+      additionalProperties: true
+
+    EchoResponse:
+      type: object
+      description: Echoed content of the request (query parameters or body)
+      additionalProperties: true
+
+    EchoDeleteResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          example: deleted
 
     ErrorResponse:
       type: object
