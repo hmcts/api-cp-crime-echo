@@ -18,6 +18,10 @@ on:
       api_name:
         required: true
         type: string
+      redocly_project:
+        required: false
+        type: string
+        default: ''
       mount_path:
         required: false
         type: string
@@ -37,11 +41,16 @@ jobs:
           name: ${{ inputs.upload_artifact_name }}
           path: /tmp/openapi-spec
 
-      - name: Resolve spec file path
+      - name: Resolve spec file and project name
         id: spec
         run: |
           SPEC_FILE=$(find /tmp/openapi-spec -name "*.yml" -o -name "*.yaml" | head -1)
           echo "path=$SPEC_FILE" >> "$GITHUB_OUTPUT"
+          PROJECT="${{ inputs.redocly_project }}"
+          if [ -z "$PROJECT" ]; then
+            PROJECT="${{ inputs.api_name }}"
+          fi
+          echo "project=$PROJECT" >> "$GITHUB_OUTPUT"
 
       - name: Push spec to Redocly (draft)
         if: ${{ !inputs.is_release }}
@@ -50,7 +59,7 @@ jobs:
         run: |
           npx @redocly/cli@latest push "${{ steps.spec.outputs.path }}" \
             --organization ${{ inputs.redocly_organization }} \
-            --project ${{ inputs.api_name }} \
+            --project ${{ steps.spec.outputs.project }} \
             --mount-path ${{ inputs.mount_path }} \
             --branch draft \
             --author "${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>" \
@@ -63,7 +72,7 @@ jobs:
         run: |
           npx @redocly/cli@latest push "${{ steps.spec.outputs.path }}" \
             --organization ${{ inputs.redocly_organization }} \
-            --project ${{ inputs.api_name }} \
+            --project ${{ steps.spec.outputs.project }} \
             --mount-path ${{ inputs.mount_path }} \
             --author "${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>" \
             --message "chore: publish release spec ${{ inputs.api_version }} [skip ci]"
