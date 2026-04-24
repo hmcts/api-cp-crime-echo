@@ -86,7 +86,7 @@ jobs:
 
   Push-Draft-OpenAPI-Spec:
     if: github.event_name == 'push'
-    needs: [ Test ]
+    needs: [ Artefact-Version, Update-Spec-Version, Test ]
     uses: ./.github/workflows/publish-openapi-spec.yml
     secrets:
       SWAGGERHUB_API_KEY: ${{ secrets.APIHUB_API_KEY }}
@@ -98,7 +98,7 @@ jobs:
 
   Push-Draft-OpenAPI-Spec-Redocly:
     if: github.event_name == 'push'
-    needs: [ Test ]
+    needs: [ Artefact-Version, Update-Spec-Version, Test ]
     uses: ./.github/workflows/publish-openapi-redocly.yml
     secrets:
       REDOCLY_AUTHORIZATION: ${{ secrets.REDOCLY_AUTHORIZATION }}
