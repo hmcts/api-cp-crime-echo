@@ -25,7 +25,7 @@ on:
       mount_path:
         required: false
         type: string
-        default: /openapi.yaml
+        default: apis/index.yaml
       is_release:
         required: false
         type: boolean
@@ -61,7 +61,6 @@ jobs:
             --organization ${{ inputs.redocly_organization }} \
             --project ${{ steps.spec.outputs.project }} \
             --mount-path ${{ inputs.mount_path }} \
-            --branch draft \
             --author "${{ github.actor }} <${{ github.actor }}@users.noreply.github.com>" \
             --message "chore: publish draft spec ${{ inputs.api_version }} [skip ci]"
 

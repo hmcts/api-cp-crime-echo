@@ -71,6 +71,7 @@ jobs:
       api_name: ${{ github.event.repository.name }}
       redocly_project: ${{ vars.REDOCLY_PROJECT }}
       api_version: ${{ needs.Artefact-Version.outputs.artefact_version }}
+      mount_path: apis/index.yaml
       is_release: true
 
   Publish:
