@@ -47,6 +47,8 @@ paths:
               type: string
           style: form
           explode: true
+          example:
+            greeting: hello
       responses:
         '200':
           description: Echo of the supplied query parameters
@@ -136,11 +138,15 @@ components:
       type: object
       description: Free-form JSON payload to echo back
       additionalProperties: true
+      example:
+        greeting: hello
 
     EchoResponse:
       type: object
       description: Echoed content of the request (query parameters or body)
       additionalProperties: true
+      example:
+        greeting: hello
 
     EchoDeleteResponse:
       type: object
@@ -150,6 +156,8 @@ components:
         message:
           type: string
           example: deleted
+      example:
+        message: deleted
 
     ErrorResponse:
       type: object
@@ -170,3 +178,9 @@ components:
         traceId:
           type: string
           description: Unique identifier for error tracing
+      example:
+        error: INTERNAL_SERVER_ERROR
+        message: An unexpected error occurred
+        details: {}
+        timestamp: '2026-01-01T00:00:00Z'
+        traceId: abc-123-def-456
