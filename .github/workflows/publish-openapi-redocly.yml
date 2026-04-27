@@ -25,7 +25,7 @@ on:
       mount_path:
         required: false
         type: string
-        default: apis/index.yaml
+        default: apis/
       is_release:
         required: false
         type: boolean
@@ -45,7 +45,8 @@ jobs:
         id: spec
         run: |
           SPEC_FILE=$(find /tmp/openapi-spec -name "*.yml" -o -name "*.yaml" | head -1)
-          echo "path=$SPEC_FILE" >> "$GITHUB_OUTPUT"
+          cp "$SPEC_FILE" /tmp/openapi-spec/index.yaml
+          echo "path=/tmp/openapi-spec/index.yaml" >> "$GITHUB_OUTPUT"
           PROJECT="${{ inputs.redocly_project }}"
           if [ -z "$PROJECT" ]; then
             PROJECT="${{ inputs.api_name }}"
