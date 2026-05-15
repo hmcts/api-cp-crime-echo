@@ -64,37 +64,98 @@ See [`docs/API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for the fu
 
 ## One-time setup
 
-### 1. Create the Azure service principal
+This walkthrough produces every value listed in [Required values](#required-values). Prerequisite: [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) installed and you can sign in to Azure with permissions to create app registrations in the target tenant and to assign roles on the target APIM resource.
 
-Run this once, with permissions to create app registrations in your tenant and assign roles on the target APIM resource:
+### 1. Sign in and locate the APIM instance
+
+```bash
+# Sign in. Opens a browser unless you already have a session.
+az login
+
+# Find the APIM instance you want to publish into. Replace <APIM_NAME>
+# with the name you see in the Azure portal or in the dev portal URL
+# (e.g. https://<APIM_NAME>.developer.azure-api.net/).
+az apim list \
+  --query "[?name=='<APIM_NAME>'].{name:name, rg:resourceGroup, sub:id}" \
+  -o table
+```
+
+Output gives you two values straight away:
+
+| Column | Maps to                       | Notes                                                                                                                |
+|--------|-------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `name` | `AZURE_APIM_SERVICE_NAME`     | Same as the value you passed in.                                                                                     |
+| `rg`   | `AZURE_APIM_RESOURCE_GROUP`   | Resource group hosting the APIM instance.                                                                            |
+| `sub`  | (parse for subscription)      | The full resource path. The subscription ID is the GUID between `/subscriptions/` and `/resourceGroups/`.            |
+
+### 2. Switch context to the APIM's subscription
+
+Your active subscription is **not** necessarily the one hosting the APIM. Switch to it explicitly so subsequent commands act in the right place:
+
+```bash
+# Subscription ID extracted from step 1's `sub` column.
+az account set --subscription <APIM_SUBSCRIPTION_ID>
+
+# Confirm subscription + tenant context.
+az account show --query "{subscriptionId:id, tenantId:tenantId}" -o table
+```
+
+This output gives you two more values:
+
+| Column           | Maps to                  |
+|------------------|--------------------------|
+| `subscriptionId` | `AZURE_SUBSCRIPTION_ID`  |
+| `tenantId`       | `AZURE_TENANT_ID`        |
+
+### 3. Confirm the APIM path is free
+
+`AZURE_APIM_API_PATH` is a naming decision (suggested convention: `<source-system>/<case-type>/<entity>`, e.g. `cp/crime/echo`). It must be unique within the APIM instance — APIM will reject an import that collides with an existing API's path.
+
+```bash
+az apim api list \
+  --resource-group <AZURE_APIM_RESOURCE_GROUP> \
+  --service-name  <AZURE_APIM_SERVICE_NAME> \
+  --query "[].{name:name, displayName:displayName, path:path}" \
+  -o table
+```
+
+If your intended path appears, pick a different one or delete the colliding API (see [Common failures](#common-failures-and-fixes)).
+
+### 4. Create the service principal
 
 ```bash
 az ad sp create-for-rbac \
   --name "gha-api-cp-crime-echo-apim-publisher" \
   --role "API Management Service Contributor" \
-  --scopes "/subscriptions/<SUB_ID>/resourceGroups/<RG>/providers/Microsoft.ApiManagement/service/<APIM_NAME>"
+  --scopes "/subscriptions/<AZURE_SUBSCRIPTION_ID>/resourceGroups/<AZURE_APIM_RESOURCE_GROUP>/providers/Microsoft.ApiManagement/service/<AZURE_APIM_SERVICE_NAME>"
 ```
 
-The output contains everything you need to populate the secrets section below:
+Output:
 
 ```json
 {
   "appId":       "…",  // → AZURE_CLIENT_ID
   "displayName": "…",
-  "password":    "…",  // → AZURE_CLIENT_SECRET
-  "tenant":      "…"   // → AZURE_TENANT_ID
+  "password":    "…",  // → AZURE_CLIENT_SECRET   (shown once only)
+  "tenant":      "…"   // → AZURE_TENANT_ID       (confirms step 2)
 }
 ```
 
-The `<SUB_ID>` you used in `--scopes` is the value for `AZURE_SUBSCRIPTION_ID`.
+> **Secret hygiene.** `password` is printed exactly once. Copy it straight into GitHub repository secrets — don't paste it into chats, tickets, or anywhere else. If it leaks, rotate immediately:
+> ```bash
+> az ad sp credential reset --id <AZURE_CLIENT_ID> --display-name "gha-rotated"
+> ```
 
 Why `API Management Service Contributor`? It is the least-privilege built-in role that can import APIs and manage revisions / releases. Scoping it to the single APIM resource (not the whole subscription) limits blast radius if the credential leaks.
 
-### 2. Add GitHub repository secrets and variables
+### 5. Add the values to GitHub
 
-Navigate to **Settings → Secrets and variables → Actions** in the GitHub repo and add the entries in the [Required values](#required-values) section below.
+In the GitHub repo: **Settings → Secrets and variables → Actions**.
 
-### 3. Trigger the workflow
+- **Secrets** tab — add the four `AZURE_*` secrets listed under [Required values](#required-values).
+- **Variables** tab — add the three `AZURE_APIM_*` variables.
+
+### 6. Trigger the workflow
 
 Merge a change to `main`. The `Push-Draft-OpenAPI-Spec-Azure-APIM` job should appear in the run, and the spec should appear in the APIM Developer Portal within a minute.
 
@@ -106,20 +167,20 @@ All values below must be set in the GitHub repository before the workflow can su
 
 ### Secrets (`Settings → Secrets and variables → Actions → Secrets`)
 
-| Name                    | What it is                                                           | Where to obtain                                                                                                                              |
-|-------------------------|----------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|
-| `AZURE_CLIENT_ID`       | Application (client) ID of the service principal that publishes.     | `appId` from `az ad sp create-for-rbac` output. Also visible in **Azure portal → Microsoft Entra ID → App registrations → <your SP>**.        |
-| `AZURE_CLIENT_SECRET`   | Client secret for the service principal.                             | `password` from `az ad sp create-for-rbac` output. Only shown at creation — if lost, generate a new secret under the app registration.       |
-| `AZURE_TENANT_ID`       | Microsoft Entra (Azure AD) tenant ID containing the service principal. | `tenant` from `az ad sp create-for-rbac` output. Also visible in **Azure portal → Microsoft Entra ID → Overview**.                            |
-| `AZURE_SUBSCRIPTION_ID` | ID of the subscription that owns the APIM resource.                  | `az account show --query id -o tsv`. Also visible in **Azure portal → Subscriptions** or on the APIM resource overview blade.                |
+| Name                    | What it is                                                             | Where to obtain                                                                                                                                                                              |
+|-------------------------|------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `AZURE_CLIENT_ID`       | Application (client) ID of the service principal that publishes.       | `appId` field from `az ad sp create-for-rbac` ([step 4](#4-create-the-service-principal)). To re-read later: `az ad sp list --display-name "gha-api-cp-crime-echo-apim-publisher" --query "[0].appId" -o tsv`. |
+| `AZURE_CLIENT_SECRET`   | Client secret for the service principal.                               | `password` field from `az ad sp create-for-rbac` ([step 4](#4-create-the-service-principal)). Shown **once**. To rotate: `az ad sp credential reset --id <AZURE_CLIENT_ID> --display-name "gha-rotated"`.       |
+| `AZURE_TENANT_ID`       | Microsoft Entra (Azure AD) tenant ID hosting the service principal.    | `tenantId` from `az account show` ([step 2](#2-switch-context-to-the-apims-subscription)). Or `tenant` from the `sp create-for-rbac` output ([step 4](#4-create-the-service-principal)).                       |
+| `AZURE_SUBSCRIPTION_ID` | ID of the subscription that owns the APIM resource.                    | `subscriptionId` from `az account show` after `az account set` ([step 2](#2-switch-context-to-the-apims-subscription)). Or extract from the `sub` column of `az apim list` ([step 1](#1-sign-in-and-locate-the-apim-instance)). |
 
 ### Variables (`Settings → Secrets and variables → Actions → Variables`)
 
-| Name                         | What it is                                                  | Example          | Where to obtain                                                                                                  |
-|------------------------------|-------------------------------------------------------------|------------------|------------------------------------------------------------------------------------------------------------------|
-| `AZURE_APIM_RESOURCE_GROUP`  | Resource group containing the APIM instance.                | `rg-hmcts-apim-nonprod` | **Azure portal → API Management services → \<your APIM\> → Overview → Resource group**.                          |
-| `AZURE_APIM_SERVICE_NAME`    | Name of the APIM instance to publish into.                  | `apim-hmcts-nonprod`    | **Azure portal → API Management services →** name column. Or `az apim list --query "[].name" -o tsv`.            |
-| `AZURE_APIM_API_PATH`        | URL path consumers hit on the APIM gateway.                 | `cp/crime/echo`         | A naming decision for this repo. Convention: `<source-system>/<case-type>/<entity>` from the repo name.          |
+| Name                         | What it is                                              | Example                  | Where to obtain                                                                                                                                                                                          |
+|------------------------------|---------------------------------------------------------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `AZURE_APIM_RESOURCE_GROUP`  | Resource group containing the APIM instance.            | `rg-hmcts-apim-nonprod`  | `rg` column from `az apim list` ([step 1](#1-sign-in-and-locate-the-apim-instance)). To look up directly: `az apim show --name <APIM_NAME> --query resourceGroup -o tsv` *(scans all subs in current context)*. |
+| `AZURE_APIM_SERVICE_NAME`    | Name of the APIM instance to publish into.              | `apim-hmcts-nonprod`     | The `<APIM_NAME>` you passed to `az apim list` ([step 1](#1-sign-in-and-locate-the-apim-instance)). Also the subdomain in the dev-portal URL `https://<name>.developer.azure-api.net/`.                       |
+| `AZURE_APIM_API_PATH`        | URL path consumers hit on the APIM gateway.             | `cp/crime/echo`          | A naming decision for this repo — not derived from Azure. Convention: `<source-system>/<case-type>/<entity>`. Verify it isn't already taken with the path-check query in [step 3](#3-confirm-the-apim-path-is-free). |
 
 ### Inputs hard-coded in the workflow call
 
