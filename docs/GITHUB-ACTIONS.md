@@ -9,6 +9,7 @@
 | `lint-openapi.yml`                    | Lints and validates OpenAPI documents and JSON schema example responses on pull requests.                     | `pull_request` |
 | `publish-released-openapi-spec.yml`   | Pushes the released OpenAPI spec to APIHub, validates it, and sets it as the default version.                 | `release` |
 | `push-draft-openapi-spec.yml`         | Pushes the draft OpenAPI spec to APIHub in an unpublished state.                                              | `push` (to `main` or `master`) |
+| `publish-openapi-azure-apim.yml`      | Reusable workflow: imports the versioned OpenAPI spec into Azure API Management. See [AZURE-APIM-PUBLISHING.md](./AZURE-APIM-PUBLISHING.md). | `workflow_call` (from `ci-draft.yml` / `ci-released.yml`) |
 
 * Generates a CycloneDX Software Bill of Materials (SBOM) and uploads it as a build artefact. SBOM is also embedded in the JAR for draft and release builds to support supply chain integrity. 
 * See [CHAIN_OF_CUSTODY.md](./CHAIN_OF_CUSTODY.md) for details on how provenance, SBOMs, along with static analysis tools, enhances confidence in software supply chain security.
