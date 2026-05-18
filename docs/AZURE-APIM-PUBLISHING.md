@@ -62,11 +62,36 @@ See [`docs/API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for the fu
 
 ---
 
+## Roles and responsibilities
+
+Setting up and operating this pipeline is shared between two roles. The split is the same whether one person plays both or they're separate teams.
+
+| Role          | Owns                                                                                                              | Touches                                          |
+|---------------|-------------------------------------------------------------------------------------------------------------------|--------------------------------------------------|
+| **DevOps**    | Anything in Azure: the APIM instance, the service principal that publishes into it, the RBAC role assignment.     | Azure portal / `az` CLI.                         |
+| **Developer** | Anything in the GitHub repo: workflow files, OpenAPI spec, repo secrets/variables, API naming decisions.          | GitHub repo settings, files in `src/`/`.github/`.|
+
+The two roles meet at one **handoff** (after [step 4](#4-devops-create-the-service-principal)): DevOps hands the developer a short list of credentials and identifiers, and the developer plugs them into the repo. After that handoff, day-to-day publishing is fully automated.
+
+### Quick task list
+
+| Step                                                          | Role      | Output                                                                  |
+|---------------------------------------------------------------|-----------|-------------------------------------------------------------------------|
+| [1. Sign in & locate the APIM instance](#1-devops-sign-in-and-locate-the-apim-instance) | DevOps    | APIM name, resource group, subscription resource path                   |
+| [2. Switch subscription context](#2-devops-switch-context-to-the-apims-subscription)    | DevOps    | `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`                              |
+| [3. Confirm APIM path is free](#3-developer-confirm-the-apim-path-is-free)               | Developer | Chosen `AZURE_APIM_API_PATH` is unique in the APIM                      |
+| [4. Create the service principal](#4-devops-create-the-service-principal)                | DevOps    | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`                                |
+| [Handoff](#handoff-devops--developer)                                                    | both      | Secure transfer of six values                                           |
+| [5. Add values to GitHub](#5-developer-add-the-values-to-github)                         | Developer | Four secrets + three variables configured on the repo                   |
+| [6. Trigger the workflow](#6-developer-trigger-the-workflow)                             | Developer | First successful publish to the APIM Developer Portal                   |
+
+---
+
 ## One-time setup
 
-This walkthrough produces every value listed in [Required values](#required-values). Prerequisite: [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) installed and you can sign in to Azure with permissions to create app registrations in the target tenant and to assign roles on the target APIM resource.
+This walkthrough produces every value listed in [Required values](#required-values). Prerequisite for DevOps steps: [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) installed and you can sign in to Azure with permissions to create app registrations in the target tenant and to assign roles on the target APIM resource.
 
-### 1. Sign in and locate the APIM instance
+### 1. [DevOps] Sign in and locate the APIM instance
 
 ```bash
 # Sign in. Opens a browser unless you already have a session.
@@ -88,7 +113,7 @@ Output gives you two values straight away:
 | `rg`   | `AZURE_APIM_RESOURCE_GROUP`   | Resource group hosting the APIM instance.                                                                            |
 | `sub`  | (parse for subscription)      | The full resource path. The subscription ID is the GUID between `/subscriptions/` and `/resourceGroups/`.            |
 
-### 2. Switch context to the APIM's subscription
+### 2. [DevOps] Switch context to the APIM's subscription
 
 Your active subscription is **not** necessarily the one hosting the APIM. Switch to it explicitly so subsequent commands act in the right place:
 
@@ -107,9 +132,9 @@ This output gives you two more values:
 | `subscriptionId` | `AZURE_SUBSCRIPTION_ID`  |
 | `tenantId`       | `AZURE_TENANT_ID`        |
 
-### 3. Confirm the APIM path is free
+### 3. [Developer] Confirm the APIM path is free
 
-`AZURE_APIM_API_PATH` is a naming decision (suggested convention: `<source-system>/<case-type>/<entity>`, e.g. `cp/crime/echo`). It must be unique within the APIM instance — APIM will reject an import that collides with an existing API's path.
+`AZURE_APIM_API_PATH` is a naming decision **owned by the developer** (suggested convention: `<source-system>/<case-type>/<entity>`, e.g. `cp/crime/echo`). It must be unique within the APIM instance — APIM will reject an import that collides with an existing API's path. DevOps can run this check on the developer's behalf if the developer doesn't have read access on the APIM.
 
 ```bash
 az apim api list \
@@ -121,7 +146,7 @@ az apim api list \
 
 If your intended path appears, pick a different one or delete the colliding API (see [Common failures](#common-failures-and-fixes)).
 
-### 4. Create the service principal
+### 4. [DevOps] Create the service principal
 
 ```bash
 az ad sp create-for-rbac \
@@ -148,16 +173,51 @@ Output:
 
 Why `API Management Service Contributor`? It is the least-privilege built-in role that can import APIs and manage revisions / releases. Scoping it to the single APIM resource (not the whole subscription) limits blast radius if the credential leaks.
 
-### 5. Add the values to GitHub
+### Handoff: DevOps → Developer
+
+After completing steps 1, 2, and 4, DevOps hands over **six values** to the developer. Use a secure channel (1Password share, sealed envelope vault, etc.) — not chat, email, or tickets:
+
+| Value to hand over           | Comes from                                             | Developer puts it in                                                 |
+|------------------------------|--------------------------------------------------------|----------------------------------------------------------------------|
+| Subscription ID              | [Step 2](#2-devops-switch-context-to-the-apims-subscription) | Secret `AZURE_SUBSCRIPTION_ID`                                       |
+| Tenant ID                    | [Step 2](#2-devops-switch-context-to-the-apims-subscription) | Secret `AZURE_TENANT_ID`                                             |
+| Client ID (`appId`)          | [Step 4](#4-devops-create-the-service-principal)             | Secret `AZURE_CLIENT_ID`                                             |
+| Client Secret (`password`)   | [Step 4](#4-devops-create-the-service-principal) — shown once | Secret `AZURE_CLIENT_SECRET`                                         |
+| APIM service name            | [Step 1](#1-devops-sign-in-and-locate-the-apim-instance)     | Variable `AZURE_APIM_SERVICE_NAME`                                   |
+| APIM resource group          | [Step 1](#1-devops-sign-in-and-locate-the-apim-instance)     | Variable `AZURE_APIM_RESOURCE_GROUP`                                 |
+
+⚠️ **Common gotcha.** The example values in the [Required values](#required-values) tables (`apim-hmcts-nonprod`, `rg-hmcts-apim-nonprod`) are *placeholders*. The developer must overwrite them with the real handed-over values, or the workflow will fail with `AuthorizationFailed` (the SP only has rights on the real APIM, not the placeholder name).
+
+### 5. [Developer] Add the values to GitHub
 
 In the GitHub repo: **Settings → Secrets and variables → Actions**.
 
 - **Secrets** tab — add the four `AZURE_*` secrets listed under [Required values](#required-values).
 - **Variables** tab — add the three `AZURE_APIM_*` variables.
 
-### 6. Trigger the workflow
+### 6. [Developer] Trigger the workflow
 
 Merge a change to `main`. The `Push-Draft-OpenAPI-Spec-Azure-APIM` job should appear in the run, and the spec should appear in the APIM Developer Portal within a minute.
+
+---
+
+## Ongoing responsibilities
+
+After the one-time setup, the pipeline runs unattended on every merge to `main`. The two roles still own things long-term:
+
+### DevOps
+
+- **Rotate the SP secret** on a schedule (suggested: yearly, or immediately if it's suspected to have leaked). Use `az ad sp credential reset --id <AZURE_CLIENT_ID> --display-name "rotation-YYYY-MM"` and hand the new password to the developer.
+- **Maintain the RBAC assignment.** Do not broaden the SP's scope beyond the single APIM resource without a documented reason.
+- **Triage Azure-side failures** in CI runs — anything where the failing step is `Azure login`, `Ensure APIM versionSet exists`, or `Import spec to APIM`. The error message in the job log is usually self-explanatory (`AuthorizationFailed`, `ResourceNotFound`, etc.). See [Common failures](#common-failures-and-fixes).
+- **Decommission the SP** when the repo is retired (`az ad sp delete --id <AZURE_CLIENT_ID>`).
+
+### Developer
+
+- **Maintain the OpenAPI spec** at `src/main/resources/openapi/openapi-spec.yml`. Linting and schema validation run on every PR.
+- **Decide when to bump `apim_api_version_id`** in `.github/workflows/ci-draft.yml` (e.g. `v1` → `v2`) when introducing a breaking change per [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md). A new value creates a new API + version-set entry in APIM rather than overwriting the existing one.
+- **Triage developer-side failures** in CI runs — Spectral lint errors, JSON-schema validation, Gradle build, Java test failures.
+- **Review APIM Developer Portal output** after each merge for unintended changes (e.g. an operation accidentally removed).
 
 ---
 
