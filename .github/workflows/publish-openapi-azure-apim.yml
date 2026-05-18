@@ -1,0 +1,181 @@
+name: Publish OpenAPI Spec to Azure API Management
+
+on:
+  workflow_call:
+    secrets:
+      AZURE_CLIENT_ID:
+        required: true
+      AZURE_CLIENT_SECRET:
+        required: true
+      AZURE_TENANT_ID:
+        required: true
+      AZURE_SUBSCRIPTION_ID:
+        required: true
+    inputs:
+      upload_artifact_name:
+        required: true
+        type: string
+      api_version:
+        required: true
+        type: string
+      apim_resource_group:
+        required: true
+        type: string
+      apim_service_name:
+        required: true
+        type: string
+      apim_api_id:
+        required: true
+        type: string
+      apim_api_path:
+        required: true
+        type: string
+      apim_api_version_id:
+        required: false
+        type: string
+        default: v1
+      apim_subscription_required:
+        required: false
+        type: boolean
+        default: true
+      is_release:
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  Push-API-to-Azure-APIM:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download versioned OpenAPI spec artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.upload_artifact_name }}
+          path: /tmp/openapi-spec
+
+      - name: Resolve spec file
+        id: spec
+        run: |
+          set -euo pipefail
+          SPEC_FILE=$(find /tmp/openapi-spec -name "*.yml" -o -name "*.yaml" | head -1)
+          if [ -z "$SPEC_FILE" ]; then
+            echo "::error::No OpenAPI spec file found in artifact"
+            exit 1
+          fi
+          echo "path=$SPEC_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          creds: |
+            {
+              "clientId":       "${{ secrets.AZURE_CLIENT_ID }}",
+              "clientSecret":   "${{ secrets.AZURE_CLIENT_SECRET }}",
+              "tenantId":       "${{ secrets.AZURE_TENANT_ID }}",
+              "subscriptionId": "${{ secrets.AZURE_SUBSCRIPTION_ID }}"
+            }
+
+      - name: Ensure APIM versionSet exists
+        env:
+          RG: ${{ inputs.apim_resource_group }}
+          APIM: ${{ inputs.apim_service_name }}
+          API_ID: ${{ inputs.apim_api_id }}
+        run: |
+          set -euo pipefail
+          VS_ID="${API_ID}-vs"
+          if ! az apim api versionset show \
+                --resource-group "$RG" \
+                --service-name "$APIM" \
+                --version-set-id "$VS_ID" >/dev/null 2>&1; then
+            az apim api versionset create \
+              --resource-group "$RG" \
+              --service-name "$APIM" \
+              --version-set-id "$VS_ID" \
+              --display-name "$API_ID" \
+              --versioning-scheme Header \
+              --version-header-name Accept
+          fi
+
+      - name: Import spec to APIM (draft revision)
+        if: ${{ !inputs.is_release }}
+        env:
+          RG: ${{ inputs.apim_resource_group }}
+          APIM: ${{ inputs.apim_service_name }}
+          API_ID: ${{ inputs.apim_api_id }}
+          VERSION_ID: ${{ inputs.apim_api_version_id }}
+          API_PATH: ${{ inputs.apim_api_path }}
+          SPEC_FILE: ${{ steps.spec.outputs.path }}
+          SUB_REQUIRED: ${{ inputs.apim_subscription_required }}
+        run: |
+          set -euo pipefail
+          az apim api import \
+            --resource-group "$RG" \
+            --service-name "$APIM" \
+            --api-id "${API_ID}-${VERSION_ID}" \
+            --path "$API_PATH" \
+            --api-version "$VERSION_ID" \
+            --api-version-set-id "${API_ID}-vs" \
+            --specification-format OpenApi \
+            --specification-path "$SPEC_FILE" \
+            --subscription-required "$SUB_REQUIRED"
+
+      - name: Import spec to APIM (new release revision)
+        if: ${{ inputs.is_release }}
+        env:
+          RG: ${{ inputs.apim_resource_group }}
+          APIM: ${{ inputs.apim_service_name }}
+          API_ID: ${{ inputs.apim_api_id }}
+          VERSION_ID: ${{ inputs.apim_api_version_id }}
+          API_PATH: ${{ inputs.apim_api_path }}
+          SPEC_FILE: ${{ steps.spec.outputs.path }}
+          SUB_REQUIRED: ${{ inputs.apim_subscription_required }}
+          API_VERSION: ${{ inputs.api_version }}
+        run: |
+          set -euo pipefail
+          FULL_API_ID="${API_ID}-${VERSION_ID}"
+          NEXT_REV=$(az apim api revision list \
+            --resource-group "$RG" \
+            --service-name "$APIM" \
+            --api-id "$FULL_API_ID" \
+            --query "max([].apiRevision | [?@!=null] | [?@>='0'].to_number(@)) + \`1\`" \
+            -o tsv 2>/dev/null || echo 1)
+          if [ -z "$NEXT_REV" ] || [ "$NEXT_REV" = "None" ]; then
+            NEXT_REV=1
+          fi
+
+          az apim api import \
+            --resource-group "$RG" \
+            --service-name "$APIM" \
+            --api-id "$FULL_API_ID" \
+            --api-revision "$NEXT_REV" \
+            --path "$API_PATH" \
+            --api-version "$VERSION_ID" \
+            --api-version-set-id "${API_ID}-vs" \
+            --specification-format OpenApi \
+            --specification-path "$SPEC_FILE" \
+            --subscription-required "$SUB_REQUIRED"
+
+          az apim api release create \
+            --resource-group "$RG" \
+            --service-name "$APIM" \
+            --api-id "${FULL_API_ID};rev=${NEXT_REV}" \
+            --release-id "release-${API_VERSION//./-}" \
+            --notes "Release ${API_VERSION} promoted from CI"
+
+      - name: Write run summary
+        env:
+          APIM: ${{ inputs.apim_service_name }}
+          API_ID: ${{ inputs.apim_api_id }}
+          VERSION_ID: ${{ inputs.apim_api_version_id }}
+          API_PATH: ${{ inputs.apim_api_path }}
+          API_VERSION: ${{ inputs.api_version }}
+          IS_RELEASE: ${{ inputs.is_release }}
+        run: |
+          {
+            echo "### Azure APIM publish"
+            echo ""
+            echo "- **APIM service:** \`${APIM}\`"
+            echo "- **API:** \`${API_ID}-${VERSION_ID}\` (path \`${API_PATH}\`)"
+            echo "- **Spec version:** \`${API_VERSION}\`"
+            echo "- **Mode:** $([ \"$IS_RELEASE\" = \"true\" ] && echo release || echo draft)"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -74,6 +74,24 @@ jobs:
       mount_path: apis/
       is_release: true
 
+  Push-Release-OpenAPI-Spec-Azure-APIM:
+    needs: [ Artefact-Version, Update-Spec-Version ]
+    uses: ./.github/workflows/publish-openapi-azure-apim.yml
+    secrets:
+      AZURE_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_CLIENT_SECRET:   ${{ secrets.AZURE_CLIENT_SECRET }}
+      AZURE_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    with:
+      upload_artifact_name: ${{ needs.Update-Spec-Version.outputs.upload_artifact_name }}
+      api_version:          ${{ needs.Artefact-Version.outputs.artefact_version }}
+      apim_resource_group:  ${{ vars.AZURE_APIM_RESOURCE_GROUP }}
+      apim_service_name:    ${{ vars.AZURE_APIM_SERVICE_NAME }}
+      apim_api_id:          ${{ github.event.repository.name }}
+      apim_api_path:        ${{ vars.AZURE_APIM_API_PATH }}
+      apim_api_version_id:  v1
+      is_release:           true
+
   Publish:
     name: Publish - Java ${{ matrix.java }}
     runs-on: ubuntu-latest
