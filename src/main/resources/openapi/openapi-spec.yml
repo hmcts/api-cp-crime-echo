@@ -134,13 +134,13 @@ paths:
 
   /today:
     get:
-      description: Returns today's date (server-local) as an ISO 8601 date string.
+      description: Returns the current server date and time as an ISO 8601 date-time string.
       operationId: getToday
       tags:
         - today
       responses:
         '200':
-          description: Today's date
+          description: Current server date and time
           content:
             application/json:
               schema:
@@ -182,15 +182,15 @@ components:
     TodayResponse:
       type: object
       required:
-        - date
+        - dateTime
       properties:
-        date:
+        dateTime:
           type: string
-          format: date
-          description: Today's date in ISO 8601 yyyy-MM-dd
-          example: "2026-05-18"
+          format: date-time
+          description: Current server date and time in ISO 8601 (yyyy-MM-ddTHH:mm:ssZ)
+          example: "2026-05-18T16:15:00Z"
       example:
-        date: "2026-05-18"
+        dateTime: "2026-05-18T16:15:00Z"
 
     ErrorResponse:
       type: object
