@@ -84,6 +84,7 @@ The two roles meet at one **handoff** (after [step 4](#4-devops-create-the-servi
 | [Handoff](#handoff-devops--developer)                                                    | both      | Secure transfer of six values                                           |
 | [5. Add values to GitHub](#5-developer-add-the-values-to-github)                         | Developer | Four secrets + three variables configured on the repo                   |
 | [6. Trigger the workflow](#6-developer-trigger-the-workflow)                             | Developer | First successful publish to the APIM Developer Portal                   |
+| [7. Make the API visible in the Developer Portal](#7-devops-make-the-api-visible-in-the-developer-portal) | DevOps    | API listed in the dev portal catalog                                    |
 
 ---
 
@@ -197,7 +198,39 @@ In the GitHub repo: **Settings → Secrets and variables → Actions**.
 
 ### 6. [Developer] Trigger the workflow
 
-Merge a change to `main`. The `Push-Draft-OpenAPI-Spec-Azure-APIM` job should appear in the run, and the spec should appear in the APIM Developer Portal within a minute.
+Merge a change to `main`. The `Push-Draft-OpenAPI-Spec-Azure-APIM` job should appear in the run and `az apim api show` will return the API within a minute.
+
+### 7. [DevOps] Make the API visible in the Developer Portal
+
+`az apim api import` adds the API to APIM but does **not** associate it with any Product. The Developer Portal's catalog only lists APIs that belong to at least one published Product, so without this step the API is invisible to consumers — even though it exists in APIM and the spec is rendered correctly when opened by direct URL.
+
+This is a one-time per-APIM-instance step. Pick the product(s) that match your access model; the default APIM instance ships with two published products: `starter` and `unlimited`.
+
+```bash
+# Replace <PRODUCT_ID> with the product the API should appear under
+# (e.g. starter, unlimited, or a bespoke one).
+az apim product api add \
+  --resource-group <AZURE_APIM_RESOURCE_GROUP> \
+  --service-name  <AZURE_APIM_SERVICE_NAME> \
+  --product-id    <PRODUCT_ID> \
+  --api-id        <repo-name>-v1
+```
+
+The call is idempotent — running it again when the API is already in the product is a no-op.
+
+Verify:
+
+```bash
+az apim product api list \
+  --resource-group <AZURE_APIM_RESOURCE_GROUP> \
+  --service-name  <AZURE_APIM_SERVICE_NAME> \
+  --product-id    <PRODUCT_ID> \
+  --query "[].name" -o tsv
+```
+
+> **Why this isn't in the workflow.** Product choice is a deliberate per-API decision (access tier, rate limits, terms of use) and shouldn't be hard-coded into a reusable workflow. Picking and running this once per APIM instance keeps the choice explicit.
+
+When you bump the major version (`v1` → `v2`), re-run step 7 with `--api-id <repo-name>-v2` — APIM treats each major version as a distinct API and the new one starts off with no product association.
 
 ---
 
@@ -268,7 +301,7 @@ After a merge to `main`, check in this order:
      --service-name  "$AZURE_APIM_SERVICE_NAME" \
      --api-id        api-cp-crime-echo-v1
    ```
-3. **APIM Developer Portal** — operations and schemas reflect the latest spec.
+3. **APIM Developer Portal** — operations and schemas reflect the latest spec. If the API doesn't appear in the catalog at all, it hasn't been added to a Product — see [step 7](#7-devops-make-the-api-visible-in-the-developer-portal).
 
 ---
 
@@ -280,6 +313,7 @@ After a merge to `main`, check in this order:
 | `az apim api import` fails with `AuthorizationFailed`.                   | Service principal lacks role on the APIM resource.                                          | Re-run `az role assignment create --role "API Management Service Contributor" --assignee <appId> --scope <APIM>`. |
 | Job fails on `versionset create` with `EntityAlreadyExists`.             | Race or version-set was created with a different scheme.                                    | Delete the existing version-set in APIM (if safe) or align the workflow's scheme to match.                       |
 | Spec imports but appears under wrong API name.                           | `AZURE_APIM_API_PATH` collides with another API in the same APIM instance.                  | Pick a unique path or move other APIs.                                                                           |
+| Publish job succeeds, `az apim api show` returns the API, but it doesn't appear in the dev portal catalog. | API isn't associated with any published Product. The dev portal only lists APIs in at least one Product. | Run [step 7](#7-devops-make-the-api-visible-in-the-developer-portal) to add the API to `starter` / `unlimited` (or your bespoke product). |
 
 ---
 
