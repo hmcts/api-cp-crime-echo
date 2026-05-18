@@ -6,7 +6,7 @@ Publishing is fully automated by GitHub Actions:
 
 | Trigger                                | Workflow                                                                | Behaviour                                                                  |
 |----------------------------------------|-------------------------------------------------------------------------|----------------------------------------------------------------------------|
-| Push / merge to `main`                 | [`ci-draft.yml`](../.github/workflows/ci-draft.yml) → `Push-Draft-OpenAPI-Spec-Azure-APIM` | Imports the spec into the **current revision** of the `v1` API in APIM (overwrites in place). |
+| Push / merge to `main`                 | [`ci-draft.yml`](../.github/workflows/ci-draft.yml) → `Push-Draft-OpenAPI-Spec-Azure-APIM` | Imports the spec into the **current revision** of the API in APIM (overwrites in place). |
 | GitHub release published               | [`ci-released.yml`](../.github/workflows/ci-released.yml) → `Push-Release-OpenAPI-Spec-Azure-APIM` | Imports the spec into a **new revision**, then promotes it to current via `az apim api release create`. |
 
 The shared logic lives in the reusable workflow [`publish-openapi-azure-apim.yml`](../.github/workflows/publish-openapi-azure-apim.yml).
@@ -29,7 +29,6 @@ ci-draft.yml ──► Artefact-Version ──► Update-Spec-Version ──► 
                                               │
                                               ├─ download versioned spec artifact
                                               ├─ azure/login (service principal)
-                                              ├─ ensure versionSet exists (Header + Accept)
                                               ├─ az apim api import
                                               └─ write run summary
                                                               │
@@ -43,22 +42,15 @@ The release flow is identical except that the import targets a fresh revision an
 
 ## API model in APIM
 
-The workflow creates and maintains the following objects in APIM:
+The workflow creates and maintains one APIM object — a single API per repo:
 
-| Object        | ID / naming                          | Notes                                                                            |
-|---------------|--------------------------------------|----------------------------------------------------------------------------------|
-| Version set   | `<repo-name>-vs`                     | Scheme = `Header`, header = `Accept`. Matches the project's media-type strategy. |
-| API           | `<repo-name>-v1`                     | One API per semver MAJOR. Subsequent majors create `<repo-name>-v2`, etc.        |
-| Revisions     | `1`, `2`, …                          | Drafts overwrite revision 1. Releases create a new revision and promote it.      |
-| URL path      | value of `AZURE_APIM_API_PATH`       | The path consumers hit on the gateway (e.g. `cp/crime/echo`).                    |
+| Object        | ID / naming                          | Notes                                                                              |
+|---------------|--------------------------------------|------------------------------------------------------------------------------------|
+| API           | `<repo-name>` (e.g. `api-cp-crime-echo`) | One API per repo. No APIM-level version set / version routing.                  |
+| Revisions     | `1`, `2`, …                          | Drafts overwrite revision 1. Releases create a new revision and promote it.        |
+| URL path      | value of `AZURE_APIM_API_PATH`       | The path consumers hit on the gateway (e.g. `cp/crime/echo`).                      |
 
-Consumers select the API version via the `Accept` header, e.g.:
-
-```
-Accept: application/vnd.hmcts.cp.v1+json
-```
-
-See [`docs/API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for the full versioning rules.
+APIM acts as a transparent gateway. Version negotiation is handled by the service via the `Accept` media-type (e.g. `Accept: application/vnd.hmcts.cp.v1+json`). See [`docs/API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for the application-side rules. If APIM-level version routing is ever required (e.g. v1 and v2 served from different backends), introduce a version set then.
 
 ---
 
@@ -214,7 +206,7 @@ az apim product api add \
   --resource-group <AZURE_APIM_RESOURCE_GROUP> \
   --service-name  <AZURE_APIM_SERVICE_NAME> \
   --product-id    <PRODUCT_ID> \
-  --api-id        <repo-name>-v1
+  --api-id        <repo-name>
 ```
 
 The call is idempotent — running it again when the API is already in the product is a no-op.
@@ -231,7 +223,7 @@ az apim product api list \
 
 > **Why this isn't in the workflow.** Product choice is a deliberate per-API decision (access tier, rate limits, terms of use) and shouldn't be hard-coded into a reusable workflow. Picking and running this once per APIM instance keeps the choice explicit.
 
-When you bump the major version (`v1` → `v2`), re-run step 7 with `--api-id <repo-name>-v2` — APIM treats each major version as a distinct API and the new one starts off with no product association.
+Version bumps happen at the spec layer (`Accept` header), not in APIM — the API object in APIM is reused across major versions, so step 7 does not need to be re-run when bumping `v1 → v2` at the application layer.
 
 ### 8. [DevOps] Enable Try-It mock responses
 
@@ -251,7 +243,7 @@ BODY=$(mktemp); cat > "$BODY" <<'EOF'
 }
 EOF
 az rest --method put \
-  --uri "https://management.azure.com/subscriptions/<AZURE_SUBSCRIPTION_ID>/resourceGroups/<AZURE_APIM_RESOURCE_GROUP>/providers/Microsoft.ApiManagement/service/<AZURE_APIM_SERVICE_NAME>/apis/<repo-name>-v1/policies/policy?api-version=2022-08-01" \
+  --uri "https://management.azure.com/subscriptions/<AZURE_SUBSCRIPTION_ID>/resourceGroups/<AZURE_APIM_RESOURCE_GROUP>/providers/Microsoft.ApiManagement/service/<AZURE_APIM_SERVICE_NAME>/apis/<repo-name>/policies/policy?api-version=2022-08-01" \
   --headers "Content-Type=application/json" \
   --body "@$BODY"; rm -f "$BODY"
 ```
@@ -260,14 +252,14 @@ Verify:
 
 ```bash
 az rest --method get \
-  --uri "https://management.azure.com/subscriptions/<AZURE_SUBSCRIPTION_ID>/resourceGroups/<AZURE_APIM_RESOURCE_GROUP>/providers/Microsoft.ApiManagement/service/<AZURE_APIM_SERVICE_NAME>/apis/<repo-name>-v1/policies/policy?api-version=2022-08-01"
+  --uri "https://management.azure.com/subscriptions/<AZURE_SUBSCRIPTION_ID>/resourceGroups/<AZURE_APIM_RESOURCE_GROUP>/providers/Microsoft.ApiManagement/service/<AZURE_APIM_SERVICE_NAME>/apis/<repo-name>/policies/policy?api-version=2022-08-01"
 ```
 
 Open the dev portal, click any operation, click **Try It**, **Send**. Response body matches the spec's example.
 
 > **When to remove the policy.** Once a real backend is deployed and the API's `serviceUrl` points at it, drop the `<mock-response />` line so requests actually hit the backend. The other tags can stay as-is — they're harmless `<base />` placeholders.
 
-Re-run step 8 when bumping the major version (`v1` → `v2`) for the same reason as step 7.
+Step 8 does not need to be re-run on a spec-level major version bump — the policy is attached to the API object, which is reused.
 
 ---
 
@@ -279,13 +271,13 @@ After the one-time setup, the pipeline runs unattended on every merge to `main`.
 
 - **Rotate the SP secret** on a schedule (suggested: yearly, or immediately if it's suspected to have leaked). Use `az ad sp credential reset --id <AZURE_CLIENT_ID> --display-name "rotation-YYYY-MM"` and hand the new password to the developer.
 - **Maintain the RBAC assignment.** Do not broaden the SP's scope beyond the single APIM resource without a documented reason.
-- **Triage Azure-side failures** in CI runs — anything where the failing step is `Azure login`, `Ensure APIM versionSet exists`, or `Import spec to APIM`. The error message in the job log is usually self-explanatory (`AuthorizationFailed`, `ResourceNotFound`, etc.). See [Common failures](#common-failures-and-fixes).
+- **Triage Azure-side failures** in CI runs — anything where the failing step is `Azure login` or `Import spec to APIM`. The error message in the job log is usually self-explanatory (`AuthorizationFailed`, `ResourceNotFound`, etc.). See [Common failures](#common-failures-and-fixes).
 - **Decommission the SP** when the repo is retired (`az ad sp delete --id <AZURE_CLIENT_ID>`).
 
 ### Developer
 
 - **Maintain the OpenAPI spec** at `src/main/resources/openapi/openapi-spec.yml`. Linting and schema validation run on every PR.
-- **Decide when to bump `apim_api_version_id`** in `.github/workflows/ci-draft.yml` (e.g. `v1` → `v2`) when introducing a breaking change per [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md). A new value creates a new API + version-set entry in APIM rather than overwriting the existing one.
+- **Apply [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md)** for breaking-change handling. Versioning is done at the application layer via the `Accept` header; the same APIM API object serves all versions, so no workflow change is needed when bumping.
 - **Triage developer-side failures** in CI runs — Spectral lint errors, JSON-schema validation, Gradle build, Java test failures.
 - **Review APIM Developer Portal output** after each merge for unintended changes (e.g. an operation accidentally removed).
 
@@ -319,7 +311,6 @@ These are not user-supplied; they come from the workflow itself or from repo met
 | Input                    | Source                                                  | Why fixed                                                                            |
 |--------------------------|---------------------------------------------------------|--------------------------------------------------------------------------------------|
 | `apim_api_id`            | `github.event.repository.name`                          | Keeps the APIM API ID aligned with the repo name automatically.                      |
-| `apim_api_version_id`    | `v1` (literal)                                          | Bump to `v2` when introducing a breaking change (creates a new APIM API + version).  |
 | `apim_subscription_required` | `true` (workflow default)                           | Requires consumers to send `Ocp-Apim-Subscription-Key`. Override per-call if needed. |
 | `upload_artifact_name`   | Output of the `Update-Spec-Version` job                 | Ensures the version-stamped spec is published, not the raw repo file.                |
 | `api_version`            | Output of the `Artefact-Version` job                    | Used in release notes and `release-id` on promotion.                                 |
@@ -336,7 +327,7 @@ After a merge to `main`, check in this order:
    az apim api show \
      --resource-group "$AZURE_APIM_RESOURCE_GROUP" \
      --service-name  "$AZURE_APIM_SERVICE_NAME" \
-     --api-id        api-cp-crime-echo-v1
+     --api-id        api-cp-crime-echo
    ```
 3. **APIM Developer Portal** — operations and schemas reflect the latest spec. If the API doesn't appear in the catalog at all, it hasn't been added to a Product — see [step 7](#7-devops-make-the-api-visible-in-the-developer-portal).
 4. **Try It in the dev portal** — clicking **Send** on any operation returns the example payload from the spec. If it returns a backend error, the mock policy isn't applied — see [step 8](#8-devops-enable-try-it-mock-responses).
@@ -349,7 +340,6 @@ After a merge to `main`, check in this order:
 |--------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
 | `azure/login` step fails with `AADSTS7000215` (invalid client secret).   | `AZURE_CLIENT_SECRET` is wrong or expired.                                                  | Generate a new secret under the app registration and update the GitHub secret.                                   |
 | `az apim api import` fails with `AuthorizationFailed`.                   | Service principal lacks role on the APIM resource.                                          | Re-run `az role assignment create --role "API Management Service Contributor" --assignee <appId> --scope <APIM>`. |
-| Job fails on `versionset create` with `EntityAlreadyExists`.             | Race or version-set was created with a different scheme.                                    | Delete the existing version-set in APIM (if safe) or align the workflow's scheme to match.                       |
 | Spec imports but appears under wrong API name.                           | `AZURE_APIM_API_PATH` collides with another API in the same APIM instance.                  | Pick a unique path or move other APIs.                                                                           |
 | Publish job succeeds, `az apim api show` returns the API, but it doesn't appear in the dev portal catalog. | API isn't associated with any published Product. The dev portal only lists APIs in at least one Product. | Run [step 7](#7-devops-make-the-api-visible-in-the-developer-portal) to add the API to `starter` / `unlimited` (or your bespoke product). |
 | Dev portal Try-It returns a backend error (`500`, `failed to fetch`, `connection refused`).            | No real backend is deployed; the `serviceUrl` points at a non-existent or unreachable host.                  | Run [step 8](#8-devops-enable-try-it-mock-responses) to apply the `mock-response` policy so APIM returns the spec's example payloads. |

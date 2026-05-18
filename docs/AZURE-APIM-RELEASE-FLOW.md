@@ -83,9 +83,8 @@ sequenceDiagram
   GH->>GA: Trigger ci-draft.yml on push
   GA->>GA: Artefact-Version → Update-Spec-Version → Test
   GA->>NLAz: azure/login with non-live SP credentials
-  GA->>NLAz: Ensure versionSet exists (idempotent)
   GA->>NLAz: az apim api import (overwrite current revision)
-  NLAz->>NLApim: Spec replaces current revision of v1 API
+  NLAz->>NLApim: Spec replaces current revision of the API
   NLApim-->>Dev: Visible at non-live Dev Portal within ~1 min
 ```
 
@@ -98,9 +97,9 @@ sequenceDiagram
 | 3     | Merge PR to main                                      | Developer   | Trigger for the publish.                                              |
 | 4–6   | Build & version the spec artefact                     | Developer   | Workflow logic. Maintained by developer in `.github/workflows/`.      |
 | 7     | Azure login (non-live SP)                             | DevOps      | SP and credentials owned by DevOps; refresh on rotation.              |
-| 8–9   | Create versionSet & import spec                       | DevOps      | RBAC and APIM config owned by DevOps. Workflow is parameterised.      |
-| 10    | Spec replaces current revision                        | DevOps      | Anything inside Azure is DevOps territory.                            |
-| 11    | Developer verifies on non-live Dev Portal             | Developer   | Optional sanity-check before cutting a release.                       |
+| 8     | Import spec                                           | DevOps      | RBAC and APIM config owned by DevOps. Workflow is parameterised.      |
+| 9     | Spec replaces current revision                        | DevOps      | Anything inside Azure is DevOps territory.                            |
+| 10    | Developer verifies on non-live Dev Portal             | Developer   | Optional sanity-check before cutting a release.                       |
 
 ---
 
@@ -124,7 +123,6 @@ sequenceDiagram
   Approver->>GH: Click Approve in run UI
   GH->>GA: Resume
   GA->>LAz: azure/login with live SP credentials
-  GA->>LAz: Ensure versionSet exists
   GA->>LAz: az apim api import into NEW revision
   GA->>LAz: az apim api release create (promote to current)
   LAz->>LApim: New revision becomes current; consumers cut over
@@ -141,10 +139,10 @@ sequenceDiagram
 | 5–6   | Pause for approval                                                           | DevOps      | Environment protection rule configured by DevOps; approver list managed by DevOps.                       |
 | 7     | Approver clicks Approve                                                      | DevOps      | Approver verifies CHANGELOG, breaking-change impact, downstream readiness.                               |
 | 8     | Resume                                                                       | —           | Automatic.                                                                                               |
-| 9     | Azure login (live SP)                                                        | DevOps      | Live SP owned by DevOps. Separate from non-live SP.                                                      |
-| 10–11 | Import spec into new revision + promote                                      | DevOps      | New revision keeps the previous one available for rollback. Promotion is atomic from the consumer's POV. |
-| 12    | New revision becomes current                                                 | DevOps      | APIM internal.                                                                                           |
-| 13    | Developer verifies on live Dev Portal                                        | Developer   | Confirm the right version is live before announcing the release.                                         |
+| 8     | Azure login (live SP)                                                        | DevOps      | Live SP owned by DevOps. Separate from non-live SP.                                                      |
+| 9–10  | Import spec into new revision + promote                                      | DevOps      | New revision keeps the previous one available for rollback. Promotion is atomic from the consumer's POV. |
+| 11    | New revision becomes current                                                 | DevOps      | APIM internal.                                                                                           |
+| 12    | Developer verifies on live Dev Portal                                        | Developer   | Confirm the right version is live before announcing the release.                                         |
 
 ---
 
@@ -204,5 +202,5 @@ The reusable workflow [`publish-openapi-azure-apim.yml`](../.github/workflows/pu
 ## Related documents
 
 - [`AZURE-APIM-PUBLISHING.md`](./AZURE-APIM-PUBLISHING.md) — current operational guide (single tenant). Will be updated to cover both environments once this design lands.
-- [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) — header-based versioning, governs when `apim_api_version_id` bumps.
+- [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) — header-based versioning at the application layer (APIM is a pass-through gateway).
 - [`GITHUB-ACTIONS.md`](./GITHUB-ACTIONS.md) — overview of all workflows in this repo.
