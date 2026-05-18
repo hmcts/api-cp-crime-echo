@@ -85,6 +85,7 @@ The two roles meet at one **handoff** (after [step 4](#4-devops-create-the-servi
 | [5. Add values to GitHub](#5-developer-add-the-values-to-github)                         | Developer | Four secrets + three variables configured on the repo                   |
 | [6. Trigger the workflow](#6-developer-trigger-the-workflow)                             | Developer | First successful publish to the APIM Developer Portal                   |
 | [7. Make the API visible in the Developer Portal](#7-devops-make-the-api-visible-in-the-developer-portal) | DevOps    | API listed in the dev portal catalog                                    |
+| [8. Enable Try-It mock responses](#8-devops-enable-try-it-mock-responses)                 | DevOps    | Consumers can invoke operations from the dev portal without a backend  |
 
 ---
 
@@ -232,6 +233,42 @@ az apim product api list \
 
 When you bump the major version (`v1` → `v2`), re-run step 7 with `--api-id <repo-name>-v2` — APIM treats each major version as a distinct API and the new one starts off with no product association.
 
+### 8. [DevOps] Enable Try-It mock responses
+
+The dev portal's **Try It** button issues a real HTTP request to the API's backend URL. There is no backend deployed for this API yet, so without a mock, every Try-It call fails. The fastest fix is APIM's built-in `mock-response` policy, which makes APIM itself return the `example` payloads from the OpenAPI spec — no external mock server, no Spring Boot deployment needed.
+
+This is a one-time per-API per-APIM-instance step. It uses the same `example:` blocks already in the spec (the ones we maintain for Redocly).
+
+The Azure CLI does not expose policy management directly, so this goes through `az rest`:
+
+```bash
+BODY=$(mktemp); cat > "$BODY" <<'EOF'
+{
+  "properties": {
+    "format": "xml",
+    "value": "<policies><inbound><base /><mock-response status-code=\"200\" /></inbound><backend><base /></backend><outbound><base /></outbound><on-error><base /></on-error></policies>"
+  }
+}
+EOF
+az rest --method put \
+  --uri "https://management.azure.com/subscriptions/<AZURE_SUBSCRIPTION_ID>/resourceGroups/<AZURE_APIM_RESOURCE_GROUP>/providers/Microsoft.ApiManagement/service/<AZURE_APIM_SERVICE_NAME>/apis/<repo-name>-v1/policies/policy?api-version=2022-08-01" \
+  --headers "Content-Type=application/json" \
+  --body "@$BODY"; rm -f "$BODY"
+```
+
+Verify:
+
+```bash
+az rest --method get \
+  --uri "https://management.azure.com/subscriptions/<AZURE_SUBSCRIPTION_ID>/resourceGroups/<AZURE_APIM_RESOURCE_GROUP>/providers/Microsoft.ApiManagement/service/<AZURE_APIM_SERVICE_NAME>/apis/<repo-name>-v1/policies/policy?api-version=2022-08-01"
+```
+
+Open the dev portal, click any operation, click **Try It**, **Send**. Response body matches the spec's example.
+
+> **When to remove the policy.** Once a real backend is deployed and the API's `serviceUrl` points at it, drop the `<mock-response />` line so requests actually hit the backend. The other tags can stay as-is — they're harmless `<base />` placeholders.
+
+Re-run step 8 when bumping the major version (`v1` → `v2`) for the same reason as step 7.
+
 ---
 
 ## Ongoing responsibilities
@@ -302,6 +339,7 @@ After a merge to `main`, check in this order:
      --api-id        api-cp-crime-echo-v1
    ```
 3. **APIM Developer Portal** — operations and schemas reflect the latest spec. If the API doesn't appear in the catalog at all, it hasn't been added to a Product — see [step 7](#7-devops-make-the-api-visible-in-the-developer-portal).
+4. **Try It in the dev portal** — clicking **Send** on any operation returns the example payload from the spec. If it returns a backend error, the mock policy isn't applied — see [step 8](#8-devops-enable-try-it-mock-responses).
 
 ---
 
@@ -314,6 +352,7 @@ After a merge to `main`, check in this order:
 | Job fails on `versionset create` with `EntityAlreadyExists`.             | Race or version-set was created with a different scheme.                                    | Delete the existing version-set in APIM (if safe) or align the workflow's scheme to match.                       |
 | Spec imports but appears under wrong API name.                           | `AZURE_APIM_API_PATH` collides with another API in the same APIM instance.                  | Pick a unique path or move other APIs.                                                                           |
 | Publish job succeeds, `az apim api show` returns the API, but it doesn't appear in the dev portal catalog. | API isn't associated with any published Product. The dev portal only lists APIs in at least one Product. | Run [step 7](#7-devops-make-the-api-visible-in-the-developer-portal) to add the API to `starter` / `unlimited` (or your bespoke product). |
+| Dev portal Try-It returns a backend error (`500`, `failed to fetch`, `connection refused`).            | No real backend is deployed; the `serviceUrl` points at a non-existent or unreachable host.                  | Run [step 8](#8-devops-enable-try-it-mock-responses) to apply the `mock-response` policy so APIM returns the spec's example payloads. |
 
 ---
 
