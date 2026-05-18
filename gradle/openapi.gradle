@@ -3,7 +3,7 @@ tasks.named('compileJava') {
 }
 
 openApiGenerate {
-  inputSpec.set("src/main/resources/openapi/openapi-spec.yml")
+  inputSpec.set(layout.projectDirectory.file("src/main/resources/openapi/openapi-spec.yml"))
   outputDir = "${layout.buildDirectory.get().asFile.absolutePath}/generated"
   apiPackage = "uk.gov.hmcts.cp.openapi.api"
   modelPackage = "uk.gov.hmcts.cp.openapi.model"
