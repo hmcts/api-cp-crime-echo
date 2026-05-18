@@ -132,6 +132,26 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  /today:
+    get:
+      description: Returns today's date (server-local) as an ISO 8601 date string.
+      operationId: getToday
+      tags:
+        - today
+      responses:
+        '200':
+          description: Today's date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TodayResponse"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   schemas:
     EchoRequest:
@@ -158,6 +178,19 @@ components:
           example: deleted
       example:
         message: deleted
+
+    TodayResponse:
+      type: object
+      required:
+        - date
+      properties:
+        date:
+          type: string
+          format: date
+          description: Today's date in ISO 8601 yyyy-MM-dd
+          example: "2026-05-18"
+      example:
+        date: "2026-05-18"
 
     ErrorResponse:
       type: object
