@@ -127,7 +127,6 @@ jobs:
       apim_service_name:    ${{ vars.AZURE_APIM_SERVICE_NAME }}
       apim_api_id:          ${{ github.event.repository.name }}
       apim_api_path:        ${{ vars.AZURE_APIM_API_PATH }}
-      apim_api_version_id:  v1
       is_release:           false
 
   Publish:
