@@ -311,7 +311,7 @@ These are not user-supplied; they come from the workflow itself or from repo met
 | Input                    | Source                                                  | Why fixed                                                                            |
 |--------------------------|---------------------------------------------------------|--------------------------------------------------------------------------------------|
 | `apim_api_id`            | `github.event.repository.name`                          | Keeps the APIM API ID aligned with the repo name automatically.                      |
-| `apim_subscription_required` | `true` (workflow default)                           | Requires consumers to send `Ocp-Apim-Subscription-Key`. Override per-call if needed. |
+| `apim_subscription_required` | `false` (workflow default)                          | Trial/mock API is anonymously accessible. Override to `true` per-caller if a deployment needs subscription keys. |
 | `upload_artifact_name`   | Output of the `Update-Spec-Version` job                 | Ensures the version-stamped spec is published, not the raw repo file.                |
 | `api_version`            | Output of the `Artefact-Version` job                    | Used in release notes and `release-id` on promotion.                                 |
 
