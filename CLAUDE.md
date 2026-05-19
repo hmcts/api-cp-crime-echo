@@ -67,14 +67,6 @@ Implementations should extend the generated API interfaces. Don't modify generat
 - JSON schemas for request/response payloads go under `src/main/resources/openapi/schema/`
 - One spec per repository
 
-### API Versioning
-
-Media-type versioning via `Accept` header — **not** URL path versioning:
-```
-Accept: application/vnd.hmcts.cp.v<MAJOR>[.<MINOR>[.<PATCH>]]+json
-```
-See `docs/API-VERSIONING-STRATEGY.md` for details on breaking vs. non-breaking change rules.
-
 ### Artefact Versioning
 
 Version is injected at build time via `-DAPI_SPEC_VERSION` (defaults to `0.0.999` if omitted). CI produces:

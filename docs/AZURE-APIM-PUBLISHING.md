@@ -19,11 +19,11 @@ The workflow creates and maintains one APIM object — a single API per repo:
 
 | Object        | ID / naming                          | Notes                                                                              |
 |---------------|--------------------------------------|------------------------------------------------------------------------------------|
-| API           | `<repo-name>` (e.g. `api-cp-crime-echo`) | One API per repo. No APIM-level version set / version routing.                  |
+| API           | `<repo-name>` (e.g. `api-cp-crime-echo`) | One API per repo.                                                               |
 | Revisions     | `1`, `2`, …                          | Drafts overwrite revision 1. Releases create a new revision and promote it.        |
 | URL path      | value of `AZURE_APIM_API_PATH`       | The path consumers hit on the gateway (e.g. `cp/crime/echo`).                      |
 
-APIM acts as a transparent gateway. Version negotiation is handled by the service via the `Accept` media-type (e.g. `Accept: application/vnd.hmcts.cp.v1+json`). See [`docs/API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for the application-side rules.
+APIM acts as a transparent gateway in front of the service.
 
 ---
 
@@ -224,7 +224,7 @@ After the one-time setup, the pipeline runs unattended on every merge to `main`.
 
 **DevOps:** rotate the SP secret on a schedule (`az ad sp credential reset`), keep its RBAC scope tight to the single APIM resource, triage Azure-side CI failures (see [Common failures](#common-failures-and-fixes)), and `az ad sp delete` when the repo is retired.
 
-**Developer:** maintain the OpenAPI spec at `src/main/resources/openapi/openapi-spec.yml`, follow [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for breaking-change handling (application-layer `Accept` header — no workflow change needed when bumping), triage lint/build/test failures, and sanity-check the dev portal after each merge.
+**Developer:** maintain the OpenAPI spec at `src/main/resources/openapi/openapi-spec.yml`, triage lint/build/test failures, and sanity-check the dev portal after each merge.
 
 ---
 
@@ -294,6 +294,5 @@ After a merge to `main`, check in this order:
 ## Related documents
 
 - [`docs/AZURE-APIM-RELEASE-FLOW.md`](./AZURE-APIM-RELEASE-FLOW.md) — design proposal for the multi-tenant (non-live + live) publish flow built on top of this guide.
-- [`docs/API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) — header-based versioning rules this workflow mirrors.
 - [`docs/OPENAPI-SPEC-VERSIONING.md`](./OPENAPI-SPEC-VERSIONING.md) — how `Artefact-Version` and `Update-Spec-Version` stamp the spec before publish.
 - [`docs/GITHUB-ACTIONS.md`](./GITHUB-ACTIONS.md) — overview of all CI workflows in this repo.

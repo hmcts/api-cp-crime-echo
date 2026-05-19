@@ -16,7 +16,6 @@ It is a design proposal — see [Open questions](#open-questions) for items stil
 
 ## Non-goals
 
-- Spec authoring conventions — already covered in [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md).
 - Build / test pipeline — already covered in [`GITHUB-ACTIONS.md`](./GITHUB-ACTIONS.md).
 - Rollback automation — out of scope for v1. APIM revisions allow manual rollback (DevOps task) if needed.
 
@@ -202,5 +201,4 @@ The reusable workflow [`publish-openapi-azure-apim.yml`](../.github/workflows/pu
 ## Related documents
 
 - [`AZURE-APIM-PUBLISHING.md`](./AZURE-APIM-PUBLISHING.md) — current operational guide (single tenant). Will be updated to cover both environments once this design lands.
-- [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) — header-based versioning at the application layer (APIM is a pass-through gateway).
 - [`GITHUB-ACTIONS.md`](./GITHUB-ACTIONS.md) — overview of all workflows in this repo.
