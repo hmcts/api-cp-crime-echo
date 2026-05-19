@@ -116,15 +116,15 @@ sequenceDiagram
 
   Dev->>GH: Cut release v1.2.3 (tag + Release object)
   GH->>GA: Trigger ci-released.yml on release.published
-  GA->>GA: Artefact-Version (release semver) → Update-Spec-Version
-  GA->>GA: Reach job with `environment: live`
-  GA-->>Approver: ⏸ Pause — pending environment approval
+  GA->>GA: Artefact-Version (release semver) then Update-Spec-Version
+  GA->>GA: Reach job with environment live
+  GA-->>Approver: Pause - pending environment approval
   Approver->>GH: Click Approve in run UI
   GH->>GA: Resume
   GA->>LAz: azure/login with live SP credentials
   GA->>LAz: az apim api import into NEW revision
   GA->>LAz: az apim api release create (promote to current)
-  LAz->>LApim: New revision becomes current; consumers cut over
+  LAz->>LApim: New revision becomes current and consumers cut over
   LApim-->>Dev: Released spec visible on live Dev Portal
 ```
 
@@ -135,9 +135,7 @@ sequenceDiagram
 | 1     | Cut GitHub Release (semver tag)                                              | Developer   | Decision: when to release; what version number.                                                          |
 | 2     | Trigger `ci-released.yml`                                                    | Developer   | Existing workflow trigger (`on: release: types: [published]`).                                           |
 | 3–4   | Build & stamp release version                                                | Developer   | Workflow logic.                                                                                          |
-| 5–6   | Pause for approval                                                           | DevOps      | Environment protection rule configured by DevOps; approver list managed by DevOps.                       |
-| 7     | Approver clicks Approve                                                      | DevOps      | Approver verifies CHANGELOG, breaking-change impact, downstream readiness.                               |
-| 8     | Resume                                                                       | —           | Automatic.                                                                                               |
+| 5–7   | Pause → approver clicks Approve → resume                                     | DevOps      | Environment protection rule + approver list managed by DevOps. Approver verifies CHANGELOG, breaking-change impact, downstream readiness. |
 | 8     | Azure login (live SP)                                                        | DevOps      | Live SP owned by DevOps. Separate from non-live SP.                                                      |
 | 9–10  | Import spec into new revision + promote                                      | DevOps      | New revision keeps the previous one available for rollback. Promotion is atomic from the consumer's POV. |
 | 11    | New revision becomes current                                                 | DevOps      | APIM internal.                                                                                           |
