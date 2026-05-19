@@ -93,7 +93,7 @@ The publish step usually takes 30–90 seconds. The portal serves the previous v
 A successful change shows:
 
 - Landing page contains only the **API Catalog** heading and the List-of-APIs widget between the header and footer.
-- Every API published in `sam-apim` (currently `api-cp-crime-echo-v1`, plus any others) appears as a card.
+- Every API published in `sam-apim` (currently `api-cp-crime-echo`, plus any others) appears as a card.
 - Clicking a card lands on `/api-details/{apiId}` with the rendered spec.
 - The dev portal still resolves correctly when not signed in.
 

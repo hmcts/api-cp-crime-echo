@@ -13,33 +13,6 @@ The shared logic lives in the reusable workflow [`publish-openapi-azure-apim.yml
 
 ---
 
-## Publish flow at a glance
-
-```
-PR merged to main
-        │
-        ▼
-ci-draft.yml ──► Artefact-Version ──► Update-Spec-Version ──► Test
-                                                              │
-                                                              ▼
-                                              Push-Draft-OpenAPI-Spec-Azure-APIM
-                                                              │
-                                                              ▼
-                                          publish-openapi-azure-apim.yml
-                                              │
-                                              ├─ download versioned spec artifact
-                                              ├─ azure/login (service principal)
-                                              ├─ az apim api import
-                                              └─ write run summary
-                                                              │
-                                                              ▼
-                                              Azure APIM Developer Portal
-```
-
-The release flow is identical except that the import targets a fresh revision and a subsequent `az apim api release create` promotes that revision to current.
-
----
-
 ## API model in APIM
 
 The workflow creates and maintains one APIM object — a single API per repo:
@@ -50,7 +23,7 @@ The workflow creates and maintains one APIM object — a single API per repo:
 | Revisions     | `1`, `2`, …                          | Drafts overwrite revision 1. Releases create a new revision and promote it.        |
 | URL path      | value of `AZURE_APIM_API_PATH`       | The path consumers hit on the gateway (e.g. `cp/crime/echo`).                      |
 
-APIM acts as a transparent gateway. Version negotiation is handled by the service via the `Accept` media-type (e.g. `Accept: application/vnd.hmcts.cp.v1+json`). See [`docs/API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for the application-side rules. If APIM-level version routing is ever required (e.g. v1 and v2 served from different backends), introduce a version set then.
+APIM acts as a transparent gateway. Version negotiation is handled by the service via the `Accept` media-type (e.g. `Accept: application/vnd.hmcts.cp.v1+json`). See [`docs/API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for the application-side rules.
 
 ---
 
@@ -64,20 +37,6 @@ Setting up and operating this pipeline is shared between two roles. The split is
 | **Developer** | Anything in the GitHub repo: workflow files, OpenAPI spec, repo secrets/variables, API naming decisions.          | GitHub repo settings, files in `src/`/`.github/`.|
 
 The two roles meet at one **handoff** (after [step 4](#4-devops-create-the-service-principal)): DevOps hands the developer a short list of credentials and identifiers, and the developer plugs them into the repo. After that handoff, day-to-day publishing is fully automated.
-
-### Quick task list
-
-| Step                                                          | Role      | Output                                                                  |
-|---------------------------------------------------------------|-----------|-------------------------------------------------------------------------|
-| [1. Sign in & locate the APIM instance](#1-devops-sign-in-and-locate-the-apim-instance) | DevOps    | APIM name, resource group, subscription resource path                   |
-| [2. Switch subscription context](#2-devops-switch-context-to-the-apims-subscription)    | DevOps    | `AZURE_SUBSCRIPTION_ID`, `AZURE_TENANT_ID`                              |
-| [3. Confirm APIM path is free](#3-developer-confirm-the-apim-path-is-free)               | Developer | Chosen `AZURE_APIM_API_PATH` is unique in the APIM                      |
-| [4. Create the service principal](#4-devops-create-the-service-principal)                | DevOps    | `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`                                |
-| [Handoff](#handoff-devops--developer)                                                    | both      | Secure transfer of six values                                           |
-| [5. Add values to GitHub](#5-developer-add-the-values-to-github)                         | Developer | Four secrets + three variables configured on the repo                   |
-| [6. Trigger the workflow](#6-developer-trigger-the-workflow)                             | Developer | First successful publish to the APIM Developer Portal                   |
-| [7. Make the API visible in the Developer Portal](#7-devops-make-the-api-visible-in-the-developer-portal) | DevOps    | API listed in the dev portal catalog                                    |
-| [8. Enable Try-It mock responses](#8-devops-enable-try-it-mock-responses)                 | DevOps    | Consumers can invoke operations from the dev portal without a backend  |
 
 ---
 
@@ -180,7 +139,7 @@ After completing steps 1, 2, and 4, DevOps hands over **six values** to the deve
 | APIM service name            | [Step 1](#1-devops-sign-in-and-locate-the-apim-instance)     | Variable `AZURE_APIM_SERVICE_NAME`                                   |
 | APIM resource group          | [Step 1](#1-devops-sign-in-and-locate-the-apim-instance)     | Variable `AZURE_APIM_RESOURCE_GROUP`                                 |
 
-⚠️ **Common gotcha.** The example values in the [Required values](#required-values) tables (`apim-hmcts-nonprod`, `rg-hmcts-apim-nonprod`) are *placeholders*. The developer must overwrite them with the real handed-over values, or the workflow will fail with `AuthorizationFailed` (the SP only has rights on the real APIM, not the placeholder name).
+> Example values in the [Required values](#required-values) tables are placeholders — overwrite them with the handed-over ones or the workflow will fail with `AuthorizationFailed`.
 
 ### 5. [Developer] Add the values to GitHub
 
@@ -221,9 +180,7 @@ az apim product api list \
   --query "[].name" -o tsv
 ```
 
-> **Why this isn't in the workflow.** Product choice is a deliberate per-API decision (access tier, rate limits, terms of use) and shouldn't be hard-coded into a reusable workflow. Picking and running this once per APIM instance keeps the choice explicit.
-
-Version bumps happen at the spec layer (`Accept` header), not in APIM — the API object in APIM is reused across major versions, so step 7 does not need to be re-run when bumping `v1 → v2` at the application layer.
+> Product choice is per-API (access tier, rate limits) so it's deliberately out of the workflow. The API object is reused across application-layer major versions, so this step is one-time.
 
 ### 8. [DevOps] Enable Try-It mock responses
 
@@ -257,29 +214,17 @@ az rest --method get \
 
 Open the dev portal, click any operation, click **Try It**, **Send**. Response body matches the spec's example.
 
-> **When to remove the policy.** Once a real backend is deployed and the API's `serviceUrl` points at it, drop the `<mock-response />` line so requests actually hit the backend. The other tags can stay as-is — they're harmless `<base />` placeholders.
-
-Step 8 does not need to be re-run on a spec-level major version bump — the policy is attached to the API object, which is reused.
+> Once a real backend is deployed, drop the `<mock-response />` line so requests hit the backend. The policy is attached to the API object, which is reused across application-layer major versions, so this step is one-time.
 
 ---
 
 ## Ongoing responsibilities
 
-After the one-time setup, the pipeline runs unattended on every merge to `main`. The two roles still own things long-term:
+After the one-time setup, the pipeline runs unattended on every merge to `main`.
 
-### DevOps
+**DevOps:** rotate the SP secret on a schedule (`az ad sp credential reset`), keep its RBAC scope tight to the single APIM resource, triage Azure-side CI failures (see [Common failures](#common-failures-and-fixes)), and `az ad sp delete` when the repo is retired.
 
-- **Rotate the SP secret** on a schedule (suggested: yearly, or immediately if it's suspected to have leaked). Use `az ad sp credential reset --id <AZURE_CLIENT_ID> --display-name "rotation-YYYY-MM"` and hand the new password to the developer.
-- **Maintain the RBAC assignment.** Do not broaden the SP's scope beyond the single APIM resource without a documented reason.
-- **Triage Azure-side failures** in CI runs — anything where the failing step is `Azure login` or `Import spec to APIM`. The error message in the job log is usually self-explanatory (`AuthorizationFailed`, `ResourceNotFound`, etc.). See [Common failures](#common-failures-and-fixes).
-- **Decommission the SP** when the repo is retired (`az ad sp delete --id <AZURE_CLIENT_ID>`).
-
-### Developer
-
-- **Maintain the OpenAPI spec** at `src/main/resources/openapi/openapi-spec.yml`. Linting and schema validation run on every PR.
-- **Apply [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md)** for breaking-change handling. Versioning is done at the application layer via the `Accept` header; the same APIM API object serves all versions, so no workflow change is needed when bumping.
-- **Triage developer-side failures** in CI runs — Spectral lint errors, JSON-schema validation, Gradle build, Java test failures.
-- **Review APIM Developer Portal output** after each merge for unintended changes (e.g. an operation accidentally removed).
+**Developer:** maintain the OpenAPI spec at `src/main/resources/openapi/openapi-spec.yml`, follow [`API-VERSIONING-STRATEGY.md`](./API-VERSIONING-STRATEGY.md) for breaking-change handling (application-layer `Accept` header — no workflow change needed when bumping), triage lint/build/test failures, and sanity-check the dev portal after each merge.
 
 ---
 

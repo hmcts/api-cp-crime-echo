@@ -194,7 +194,7 @@ The reusable workflow [`publish-openapi-azure-apim.yml`](../.github/workflows/pu
 | 2 | Should non-live also use the new-revision-then-promote pattern, or stay with in-place overwrite?         | Stay in-place (simpler, matches today).                 | Before implementation. |
 | 3 | Should we publish to live on every merge to a `release/*` branch as a "staging" step?                     | No — non-live is staging. Only GitHub Release → live.   | Before implementation. |
 | 4 | Rollback automation                                                                                       | Manual (DevOps promotes a previous revision via `az`).  | After v1 lands.        |
-| 5 | Subscription-key strategy on live vs non-live                                                             | Both `subscription-required: true` (current default).   | Before implementation. |
+| 5 | Subscription-key strategy on live vs non-live                                                             | Non-live: anonymous (workflow default `false`) for trial / mock. Live: callers set to `true` if a keyed deployment is needed. | Decided. |
 | 6 | Do we want a "dry run" step on the live job that diffs spec changes for the approver before they approve? | Out of scope for v1.                                    | After v1 lands.        |
 
 ---
