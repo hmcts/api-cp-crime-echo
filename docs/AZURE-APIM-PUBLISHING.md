@@ -294,5 +294,6 @@ After a merge to `main`, check in this order:
 ## Related documents
 
 - [`docs/AZURE-APIM-RELEASE-FLOW.md`](./AZURE-APIM-RELEASE-FLOW.md) — design proposal for the multi-tenant (non-live + live) publish flow built on top of this guide.
+- [`docs/AZURE-APIM-CONSUMER-ONBOARDING.md`](./AZURE-APIM-CONSUMER-ONBOARDING.md) — consumer journey from catalog discovery to sandbox to production.
 - [`docs/OPENAPI-SPEC-VERSIONING.md`](./OPENAPI-SPEC-VERSIONING.md) — how `Artefact-Version` and `Update-Spec-Version` stamp the spec before publish.
 - [`docs/GITHUB-ACTIONS.md`](./GITHUB-ACTIONS.md) — overview of all CI workflows in this repo.

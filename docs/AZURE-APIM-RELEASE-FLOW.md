@@ -199,4 +199,5 @@ The reusable workflow [`publish-openapi-azure-apim.yml`](../.github/workflows/pu
 ## Related documents
 
 - [`AZURE-APIM-PUBLISHING.md`](./AZURE-APIM-PUBLISHING.md) — current operational guide (single tenant). Will be updated to cover both environments once this design lands.
+- [`AZURE-APIM-CONSUMER-ONBOARDING.md`](./AZURE-APIM-CONSUMER-ONBOARDING.md) — consumer journey (discover → sandbox → production) that sits on top of this topology.
 - [`GITHUB-ACTIONS.md`](./GITHUB-ACTIONS.md) — overview of all workflows in this repo.
