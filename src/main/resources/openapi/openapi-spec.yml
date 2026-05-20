@@ -4,7 +4,7 @@ servers:
     url: https://virtserver.swaggerhub.com/HMCTS-DTS/api-hmcts-crime-template/1.0.0
 
 info:
-  title: API Marketplace api - example api
+  title: API Marketplace - echo api
   description: API Marketplace api - simple example
   version: 1.0.0
   contact:
