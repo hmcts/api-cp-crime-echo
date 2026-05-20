@@ -61,7 +61,7 @@ jobs:
           echo "path=$SPEC_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Azure login
-        uses: azure/login@v2
+        uses: azure/login@v3
         with:
           creds: |
             {
