@@ -8,6 +8,9 @@ on:
 
 env:
   FILE_PATH_OPENAPI: "src/main/resources/openapi"
+  # Publishing toggles — default OFF. Set to 'true' to enable the target.
+  PUBLISH_TO_APIHUB: "false"
+  PUBLISH_TO_AZURE_APIM: "false"
 
 jobs:
   Artefact-Version:
@@ -27,6 +30,18 @@ jobs:
           release: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  Resolve-Flags:
+    runs-on: ubuntu-latest
+    outputs:
+      publish_apihub: ${{ steps.flags.outputs.publish_apihub }}
+      publish_apim: ${{ steps.flags.outputs.publish_apim }}
+    steps:
+      - name: Resolve publishing toggles
+        id: flags
+        run: |
+          echo "publish_apihub=${PUBLISH_TO_APIHUB:-false}" >> "$GITHUB_OUTPUT"
+          echo "publish_apim=${PUBLISH_TO_AZURE_APIM:-false}" >> "$GITHUB_OUTPUT"
 
   Update-Spec-Version:
     needs: [ Artefact-Version ]
@@ -49,7 +64,8 @@ jobs:
           api_version: ${{ needs.Artefact-Version.outputs.artefact_version }}
 
   Push-Release-OpenAPI-Spec:
-    needs: [ Artefact-Version, Update-Spec-Version ]
+    needs: [ Artefact-Version, Update-Spec-Version, Resolve-Flags ]
+    if: needs.Resolve-Flags.outputs.publish_apihub == 'true'
     uses: ./.github/workflows/publish-openapi-spec.yml
     secrets:
       SWAGGERHUB_API_KEY: ${{ secrets.APIHUB_API_KEY }}
@@ -61,7 +77,8 @@ jobs:
       is_release: true
 
   Push-Release-OpenAPI-Spec-Azure-APIM:
-    needs: [ Artefact-Version, Update-Spec-Version ]
+    needs: [ Artefact-Version, Update-Spec-Version, Resolve-Flags ]
+    if: needs.Resolve-Flags.outputs.publish_apim == 'true'
     uses: ./.github/workflows/publish-openapi-azure-apim.yml
     secrets:
       AZURE_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
@@ -80,7 +97,7 @@ jobs:
   Publish:
     name: Publish - Java ${{ matrix.java }}
     runs-on: ubuntu-latest
-    needs: [ Artefact-Version, Push-Release-OpenAPI-Spec ]
+    needs: [ Artefact-Version, Update-Spec-Version ]
     strategy:
       matrix:
         java: [ 25 ]
