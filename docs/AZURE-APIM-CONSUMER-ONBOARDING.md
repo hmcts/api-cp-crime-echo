@@ -129,6 +129,88 @@ The `production` product:
 
 ---
 
+## Producer-side work to enable self-serve
+
+Implementation roadmap to make the journey above actually self-serve. The DevOps recipes in the next section describe the **end-state configuration**; this section is the **engineering work** to get there. Items marked **✓** are already in place.
+
+### Phase 1 — Foundation
+
+Without this, no auth or backend exists to call.
+
+| Item                                                                | What                                                                                                            | Status                                                              |
+|---------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| APIM instance + API published                                       | `sam-apim` with `api-cp-crime-echo`                                                                              | ✓                                                                   |
+| `mock` product, anonymous access, mock-response policy              | Dedicated product so anonymous Try-It survives once `sandbox` requires auth                                       | Partial — currently on `starter`/`unlimited` with `subscriptionRequired: false`; move to a named `mock` product |
+| `sandbox` product on `sam-apim`                                     | `subscriptionRequired: true`, `approvalRequired: true`, rate-limit policy at product scope                       | To do                                                               |
+| API's Entra app registration (non-live tenant)                      | Defines the `aud` claim (`api://api-cp-crime-echo`) and an app role consumer apps request consent for           | To do                                                               |
+| `validate-jwt` policy on the API at `sam-apim` (sandbox path only)  | Points at non-live tenant's OIDC metadata; checks issuer + audience                                              | To do                                                               |
+| Sandbox backend deployment                                          | Spring Boot service running with synthetic data fixture. Today there is no backend — only `mock-response`        | To do — **biggest item by effort**                                  |
+| APIM named values `ENTRA_TENANT_ID`, `API_APP_IDENTIFIER_URI`       | Environment-agnostic policy templating                                                                           | To do                                                               |
+
+### Phase 2 — Provisioning automation
+
+Turns "DevOps clicks buttons" into a script.
+
+| Item                                                            | What                                                                                                                                                              | Status |
+|-----------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Per-consumer provisioning runner                                | The script sketched in the next section, productionised: app create + credential reset + APIM subscription create + write `clientId` to the subscription for `appid` pinning | To do  |
+| Managed identity / SP that runs the provisioning                | Needs Application Administrator on the non-live tenant + APIM Service Contributor on `sam-apim`. Distinct from the publishing SP.                                  | To do  |
+| Yopass deployment for secret hand-off                            | Self-hosted on Azure Container Apps + Azure Cache for Redis, behind a custom domain                                                                                | To do  |
+| Provisioning runner → Yopass integration                         | Runner POSTs the issued `clientSecret` to Yopass and obtains a one-time URL                                                                                        | To do  |
+
+### Phase 3 — Self-serve UX
+
+The consumer never talks to DevOps in the happy path.
+
+| Item                                | What                                                                                                              | Status                                  |
+|-------------------------------------|-------------------------------------------------------------------------------------------------------------------|-----------------------------------------|
+| Sandbox onboarding form             | Microsoft Forms / Forms Pro is the lowest-effort option; capture the question set from the Sandbox stage          | To do                                   |
+| Form → automation trigger           | Power Automate flow (or Logic App) that calls the provisioning runner on submission                               | To do                                   |
+| Form validation rules               | Email format, org-domain plausibility, mandatory checkbox for sandbox terms                                       | To do                                   |
+| Exception queue                     | Validation or provisioning failures route to Jira / Slack for DevOps triage                                       | To do                                   |
+| Dev portal account linking          | Consumer signs up on the portal with the same email as the form; the provisioned subscription appears under their profile | Documented; depends on the runner setting the right owner on the subscription |
+| Consumer-facing quick-start         | Code samples (curl, Python, Java), Postman collection, README on the dev portal content pages                      | To do                                   |
+
+### Phase 4 — Lifecycle
+
+The half that gets ignored until something breaks.
+
+| Item                                  | What                                                                                                                       | Status |
+|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|--------|
+| Sandbox-activity tracker              | Query APIM analytics for "has subscription X had real traffic?" — feeds the production prerequisite check                  | To do  |
+| Self-service secret rotation          | A second form ("rotate my client secret") that triggers `az ad app credential reset` + a fresh Yopass link                  | To do  |
+| Self-service key regeneration         | APIM dev portal already provides this for subscription keys — verify the UX works for sandbox subs                          | Verify |
+| Decommissioning flow                  | Form or scheduled job that runs `az ad app delete` + `az apim subscription delete` for inactive subscriptions               | To do  |
+| Audit log of provisioning + revocation | Provisioning runner writes to Log Analytics with who/what/when/why                                                          | To do  |
+| Alerts                                | APIM analytics → unusual rate / sustained 401s / sustained 403s → DevOps                                                   | To do  |
+
+### Phase 5 — Production
+
+Not self-serve, but needed for the journey to be complete.
+
+| Item                                                              | What                                                                                                                                   | Status |
+|-------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------|--------|
+| Live Azure tenant + APIM provisioned                              | Per [`AZURE-APIM-RELEASE-FLOW.md`](./AZURE-APIM-RELEASE-FLOW.md)                                                                        | Out-of-scope of this repo — DevOps to provision |
+| Live APIM: production product + validate-jwt + named values       | Mirror of the sandbox setup, pointed at the live tenant                                                                                 | To do (after live APIM exists) |
+| Production backend deployed                                        | The actual production service                                                                                                          | Out-of-scope of this repo       |
+| Production onboarding form                                         | Jira Service Desk request type (heavier than MS Forms because it needs an approval queue)                                               | To do  |
+| Approval routing                                                   | Jira workflow: submitted → product-owner review → DevOps sandbox-evidence check → approved → provisioning runner fires against live    | To do  |
+| Cut-over runbook                                                   | Consumer-facing checklist for swapping config from sandbox to production safely                                                          | To do  |
+
+### Critical-path summary
+
+For Stage 3 to actually be self-serve, the **minimum** producer work is:
+
+1. Stand up a sandbox backend (or accept that "sandbox" continues serving mock responses for now — documented limitation).
+2. Create the `sandbox` APIM product, apply `validate-jwt`, register the API's Entra app in the non-live tenant.
+3. Implement and test the per-consumer provisioning runner end-to-end with a service principal that has the right roles.
+4. Deploy Yopass and wire it into the runner.
+5. Stand up a Microsoft Form + Power Automate flow that calls the runner on submission and the exception queue on failure.
+
+Phase 4 (lifecycle) can come later; Phase 5 waits on the live APIM existing.
+
+---
+
 ## DevOps setup
 
 ### One-time per APIM instance

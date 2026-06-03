@@ -30,6 +30,21 @@ paths:
                 type: string
                 example: Hello
 
+  /greet:
+    get:
+      description: Returns a greeting
+      operationId: getGreet
+      tags:
+        - greet
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: hello
+
   /echo:
     get:
       description: Echo query parameters back as a JSON object
