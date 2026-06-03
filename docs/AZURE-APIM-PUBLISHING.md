@@ -186,7 +186,7 @@ az apim product api list \
 
 The dev portal's **Try It** button issues a real HTTP request to the API's backend URL. There is no backend deployed for this API yet, so without a mock, every Try-It call fails. The fastest fix is APIM's built-in `mock-response` policy, which makes APIM itself return the `example` payloads from the OpenAPI spec — no external mock server, no Spring Boot deployment needed.
 
-This is a one-time per-API per-APIM-instance step. It uses the same `example:` blocks already in the spec (the ones we maintain for Redocly).
+This is a one-time per-API per-APIM-instance step. It uses the same `example:` blocks already in the spec.
 
 The Azure CLI does not expose policy management directly, so this goes through `az rest`:
 

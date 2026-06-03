@@ -60,20 +60,6 @@ jobs:
       api_version: ${{ needs.Artefact-Version.outputs.artefact_version }}
       is_release: true
 
-  Push-Release-OpenAPI-Spec-Redocly:
-    needs: [ Artefact-Version, Update-Spec-Version ]
-    uses: ./.github/workflows/publish-openapi-redocly.yml
-    secrets:
-      REDOCLY_AUTHORIZATION: ${{ secrets.REDOCLY_AUTHORIZATION }}
-    with:
-      upload_artifact_name: ${{ needs.Update-Spec-Version.outputs.upload_artifact_name }}
-      redocly_organization: ${{ vars.REDOCLY_ORGANISATION }}
-      api_name: ${{ github.event.repository.name }}
-      redocly_project: ${{ vars.REDOCLY_PROJECT }}
-      api_version: ${{ needs.Artefact-Version.outputs.artefact_version }}
-      mount_path: apis/
-      is_release: true
-
   Push-Release-OpenAPI-Spec-Azure-APIM:
     needs: [ Artefact-Version, Update-Spec-Version ]
     uses: ./.github/workflows/publish-openapi-azure-apim.yml
