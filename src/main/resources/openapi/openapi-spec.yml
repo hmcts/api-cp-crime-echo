@@ -1,7 +1,11 @@
 openapi: 3.0.0
 servers:
-  - description: API Marketplace api - mocking example api
-    url: https://virtserver.swaggerhub.com/HMCTS-DTS/api-hmcts-crime-template/1.0.0
+  - description: API Marketplace - echo api
+    url: https://api-cp-crime-echo.net/{version}
+    variables:
+      version:
+        default: 1.0.0
+        description: API version; matches the spec info.version
 
 info:
   title: API Marketplace - echo api
