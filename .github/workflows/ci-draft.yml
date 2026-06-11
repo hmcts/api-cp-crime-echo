@@ -13,7 +13,6 @@ on:
 env:
   FILE_PATH_OPENAPI: "src/main/resources/openapi"
   # Publishing toggles — default OFF. Set to 'true' to enable the target.
-  PUBLISH_TO_APIHUB: "false"
   PUBLISH_TO_AZURE_APIM: "false"
 
 jobs:
@@ -38,13 +37,11 @@ jobs:
   Resolve-Flags:
     runs-on: ubuntu-latest
     outputs:
-      publish_apihub: ${{ steps.flags.outputs.publish_apihub }}
       publish_apim: ${{ steps.flags.outputs.publish_apim }}
     steps:
       - name: Resolve publishing toggles
         id: flags
         run: |
-          echo "publish_apihub=${PUBLISH_TO_APIHUB:-false}" >> "$GITHUB_OUTPUT"
           echo "publish_apim=${PUBLISH_TO_AZURE_APIM:-false}" >> "$GITHUB_OUTPUT"
 
   Update-Spec-Version:
@@ -98,18 +95,6 @@ jobs:
         run: |
           echo "Building with ARTEFACT_VERSION=$ARTEFACT_VERSION using Java $JAVA_VERSION"
           ./gradlew build -DAPI_SPEC_VERSION=$ARTEFACT_VERSION
-
-  Push-Draft-OpenAPI-Spec:
-    if: github.event_name == 'push' && needs.Resolve-Flags.outputs.publish_apihub == 'true'
-    needs: [ Artefact-Version, Update-Spec-Version, Test, Resolve-Flags ]
-    uses: ./.github/workflows/publish-openapi-spec.yml
-    secrets:
-      SWAGGERHUB_API_KEY: ${{ secrets.APIHUB_API_KEY }}
-    with:
-      upload_artifact_name: ${{ needs.Update-Spec-Version.outputs.upload_artifact_name }}
-      apihub_owner: ${{ vars.APIHUB_ORGANISATION }}
-      api_name: ${{ github.event.repository.name }}
-      api_version: ${{ needs.Artefact-Version.outputs.artefact_version }}
 
   Push-Draft-OpenAPI-Spec-Azure-APIM:
     if: github.event_name == 'push' && needs.Resolve-Flags.outputs.publish_apim == 'true'
