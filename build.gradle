@@ -28,8 +28,8 @@ ext {
 
 dependencies {
   implementation "org.openapitools:openapi-generator-core:7.23.0"
-  implementation "io.swagger.parser.v3:swagger-parser:2.1.43"
-  implementation "io.swagger.core.v3:swagger-annotations:2.2.50"
+  implementation "io.swagger.parser.v3:swagger-parser:2.1.44"
+  implementation "io.swagger.core.v3:swagger-annotations:2.2.51"
   implementation "net.logstash.logback:logstash-logback-encoder:9.0"
 
   implementation "com.fasterxml.jackson.core:jackson-annotations:2.22"
