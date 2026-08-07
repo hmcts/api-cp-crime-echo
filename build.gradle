@@ -3,7 +3,7 @@ plugins {
   id 'org.openapi.generator' version '7.24.0'
   id 'jacoco'
   id 'maven-publish'
-  id "com.github.ben-manes.versions" version "0.58.0"
+  id "com.github.ben-manes.versions" version "0.59.0"
   id "org.cyclonedx.bom" version "3.3.0"
   id 'pmd'
 }
@@ -28,8 +28,8 @@ ext {
 
 dependencies {
   implementation "org.openapitools:openapi-generator-core:7.24.0"
-  implementation "io.swagger.parser.v3:swagger-parser:2.1.45"
-  implementation "io.swagger.core.v3:swagger-annotations:2.2.52"
+  implementation "io.swagger.parser.v3:swagger-parser:2.1.46"
+  implementation "io.swagger.core.v3:swagger-annotations:2.2.53"
   implementation "net.logstash.logback:logstash-logback-encoder:9.0"
 
   implementation "com.fasterxml.jackson.core:jackson-annotations:2.22"
