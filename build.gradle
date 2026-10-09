@@ -4,7 +4,7 @@ plugins {
   id 'jacoco'
   id 'maven-publish'
   id "com.github.ben-manes.versions" version "0.64.0"
-  id "org.cyclonedx.bom" version "3.4.1"
+  id "org.cyclonedx.bom" version "3.5.0"
   id 'pmd'
 }
 
@@ -27,7 +27,7 @@ ext {
 }
 
 dependencies {
-  implementation "org.openapitools:openapi-generator-core:7.25.0"
+  implementation "org.openapitools:openapi-generator-core:7.26.0"
   implementation "io.swagger.parser.v3:swagger-parser:2.1.48"
   implementation "io.swagger.core.v3:swagger-annotations:2.2.55"
   implementation "net.logstash.logback:logstash-logback-encoder:9.0"
